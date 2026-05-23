@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Bot,
@@ -25,52 +25,55 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/Button";
-
-// Mock data for the specific agent
-const MOCK_AGENT = {
-  id: "1",
-  name: "Lisa",
-  business: "Bright Dental",
-  tone: "friendly",
-  language: "English",
-  phoneNumber: "+1 (415) 800-2200",
-  status: "active",
-  callsHandled: 312,
-  bookingRate: 64,
-  faqCount: 12,
-  createdAt: "Jan 12, 2026",
-  lastCallAt: "2 min ago",
-  greeting:
-    "Hello! You've reached Bright Dental. I'm Lisa, your AI receptionist. How can I help you today?",
-  faqs: [
-    {
-      id: "1",
-      question: "What are your office hours?",
-      answer:
-        "We're open Monday through Friday 8 AM to 6 PM, and Saturdays from 9 AM to 2 PM.",
-    },
-    {
-      id: "2",
-      question: "Where are you located?",
-      answer: "We are located at 123 Dental Plaza, San Francisco, CA 94103.",
-    },
-    {
-      id: "3",
-      question: "Do you accept insurance?",
-      answer:
-        "Yes, we accept most major PPO plans including Delta Dental, MetLife, and Aetna.",
-    },
-  ],
-};
+import { db, auth } from "@/lib/firebase";
+import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, limit } from "firebase/firestore";
+import { useParams } from "next/navigation";
 
 export default function AgentDetailPage() {
-  const [agent, setAgent] = useState(MOCK_AGENT);
+  const { agentId } = useParams();
+  const [agent, setAgent] = useState<any>(null);
+  const [recentCalls, setRecentCalls] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
-  const handleSave = () => {
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
+    return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user || !agentId) return;
+
+    const unsubAgent = onSnapshot(doc(db, "tenants", user.uid, "agents", agentId as string), (doc) => {
+      if (doc.exists()) setAgent({ id: doc.id, ...doc.data() });
+    });
+
+    const unsubCalls = onSnapshot(
+      query(collection(db, "tenants", user.uid, "calls"), 
+      where("agentId", "==", agentId),
+      orderBy("createdAt", "desc"), 
+      limit(5)), 
+      (snapshot) => {
+        setRecentCalls(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      }
+    );
+
+    return () => { unsubAgent(); unsubCalls(); };
+  }, [user, agentId]);
+
+  const handleSave = async () => {
+    if (!user || !agentId) return;
     setIsSaving(true);
-    setTimeout(() => setIsSaving(false), 1000);
+    try {
+      await updateDoc(doc(db, "tenants", user.uid, "agents", agentId as string), agent);
+    } catch (e) {
+      console.error("Error saving agent:", e);
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (!agent) return <div className="flex h-screen items-center justify-center text-zinc-500">Loading agent details...</div>;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -169,13 +172,13 @@ export default function AgentDetailPage() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <StatMiniCard
                   label="Total calls"
-                  value={agent.callsHandled}
+                  value={agent.callsHandled || 0}
                   icon={Activity}
                   color="text-violet-400"
                 />
                 <StatMiniCard
                   label="Booking rate"
-                  value={`${agent.bookingRate}%`}
+                  value={`${agent.bookingRate || 0}%`}
                   icon={Calendar}
                   color="text-emerald-400"
                 />
@@ -196,9 +199,9 @@ export default function AgentDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
+                    {recentCalls.length > 0 ? recentCalls.map((call) => (
                       <div
-                        key={i}
+                        key={call.id}
                         className="flex items-center justify-between py-3 border-b border-white/[0.04] last:border-0"
                       >
                         <div className="flex items-center gap-3">
@@ -207,23 +210,25 @@ export default function AgentDetailPage() {
                           </div>
                           <div>
                             <p className="text-[13px] font-medium text-zinc-200">
-                              +1 (415) 555-01{i}2
+                              {call.callerNumber}
                             </p>
                             <p className="text-[11px] text-zinc-600">
-                              Incoming call · 3m 12s
+                              Incoming call · {Math.floor(call.duration / 60)}m {call.duration % 60}s
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
                           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-                            Booked
+                            {call.outcome?.charAt(0).toUpperCase() + call.outcome?.slice(1)}
                           </span>
                           <p className="mt-1 text-[11px] text-zinc-600">
-                            2 hours ago
+                            {call.createdAt?.toDate ? new Date(call.createdAt.toDate()).toLocaleTimeString() : "Recent"}
                           </p>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <p className="text-center py-6 text-zinc-600 text-sm">No recent calls for this agent.</p>
+                    )}
                     <Link
                       href="/calls"
                       className="flex items-center justify-center gap-1.5 py-2 text-[12px] text-violet-400 hover:text-violet-300"

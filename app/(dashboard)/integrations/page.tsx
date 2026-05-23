@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Calendar,
   CheckCircle2,
@@ -19,6 +19,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { db, auth } from "@/lib/firebase";
+import { doc, onSnapshot, updateDoc, collection } from "firebase/firestore";
 
 // ── Types ────────────────────────────────────────────────────────────
 type IntegrationStatus = "connected" | "disconnected" | "error" | "syncing";
@@ -39,117 +41,14 @@ interface Integration {
   comingSoon?: boolean;
 }
 
-// ── Mock Data ─────────────────────────────────────────────────────────
-const integrations: Integration[] = [
-  {
-    id: "google-calendar",
-    name: "Google Calendar",
-    description:
-      "Sync appointments directly to your Google Calendar. Patients can book, reschedule, or cancel in real time.",
-    category: "calendar",
-    status: "connected",
-    icon: Calendar,
-    iconColor: "text-blue-400",
-    iconBg: "bg-blue-500/10 border-blue-500/20",
-    connectedAccount: "clinic@brightdental.com",
-    lastSync: "2 min ago",
-    features: ["Real-time booking", "Auto reschedule", "Cancel detection"],
-    popular: true,
-  },
-  {
-    id: "hubspot",
-    name: "HubSpot CRM",
-    description:
-      "Push call summaries, caller info, and outcomes directly into your HubSpot contacts and deals pipeline.",
-    category: "crm",
-    status: "disconnected",
-    icon: Zap,
-    iconColor: "text-orange-400",
-    iconBg: "bg-orange-500/10 border-orange-500/20",
-    features: ["Contact sync", "Deal creation", "Call logging"],
-    popular: true,
-  },
-  {
-    id: "gohighlevel",
-    name: "GoHighLevel",
-    description:
-      "Route leads, automate follow-up sequences, and log every call as a CRM activity inside GoHighLevel.",
-    category: "crm",
-    status: "disconnected",
-    icon: Globe,
-    iconColor: "text-emerald-400",
-    iconBg: "bg-emerald-500/10 border-emerald-500/20",
-    features: ["Pipeline sync", "Auto follow-up", "SMS triggers"],
-  },
-  {
-    id: "twilio-sms",
-    name: "Twilio SMS",
-    description:
-      "Send automatic post-call SMS follow-ups to callers — appointment reminders, directions, or custom messages.",
-    category: "sms",
-    status: "connected",
-    icon: MessageSquare,
-    iconColor: "text-red-400",
-    iconBg: "bg-red-500/10 border-red-500/20",
-    connectedAccount: "+1 (415) 800-2200",
-    lastSync: "Active",
-    features: ["Post-call SMS", "Appointment reminders", "Custom templates"],
-  },
-  {
-    id: "calendly",
-    name: "Calendly",
-    description:
-      "Let callers book using your Calendly scheduling link. The AI reads availability and books the slot live.",
-    category: "calendar",
-    status: "error",
-    icon: Calendar,
-    iconColor: "text-sky-400",
-    iconBg: "bg-sky-500/10 border-sky-500/20",
-    connectedAccount: "calendly.com/brightdental",
-    lastSync: "Sync failed",
-    features: ["Live booking", "Buffer times", "Event types"],
-  },
-  {
-    id: "webhooks",
-    name: "Custom Webhooks",
-    description:
-      "Send call data to any endpoint — your own server, Zapier, Make.com, or any custom automation.",
-    category: "webhook",
-    status: "connected",
-    icon: Link2,
-    iconColor: "text-violet-400",
-    iconBg: "bg-violet-500/10 border-violet-500/20",
-    connectedAccount: "2 endpoints active",
-    lastSync: "Real-time",
-    features: ["POST on call end", "Custom headers", "Retry logic"],
-  },
-  {
-    id: "salesforce",
-    name: "Salesforce",
-    description:
-      "Enterprise CRM sync — log calls, create leads, and update opportunity stages automatically.",
-    category: "crm",
-    status: "disconnected",
-    icon: Globe,
-    iconColor: "text-blue-300",
-    iconBg: "bg-blue-500/10 border-blue-500/20",
-    features: ["Lead sync", "Opportunity update", "Task creation"],
-    comingSoon: true,
-  },
-  {
-    id: "outlook",
-    name: "Outlook Calendar",
-    description:
-      "Microsoft 365 calendar integration for booking and scheduling inside enterprise environments.",
-    category: "calendar",
-    status: "disconnected",
-    icon: Calendar,
-    iconColor: "text-indigo-400",
-    iconBg: "bg-indigo-500/10 border-indigo-500/20",
-    features: ["M365 booking", "Teams meetings", "Auto invites"],
-    comingSoon: true,
-  },
-];
+const iconMap: Record<string, React.ElementType> = {
+  calendar: Calendar,
+  zap: Zap,
+  globe: Globe,
+  messageSquare: MessageSquare,
+  link2: Link2,
+  phone: Phone,
+};
 
 // ── Status helpers ────────────────────────────────────────────────────
 const statusConfig = {
@@ -506,9 +405,51 @@ function ConnectModal({
 
 // ── Main Page ────────────────────────────────────────────────────────
 export default function IntegrationsPage() {
-  const [items, setItems] = useState<Integration[]>(integrations);
+  const [user, setUser] = useState<any>(null);
+  const [tenant, setTenant] = useState<any>(null);
+  const [availableIntegrations, setAvailableIntegrations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [connecting, setConnecting] = useState<Integration | null>(null);
+
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
+    return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = onSnapshot(doc(db, "tenants", user.uid), (doc) => {
+      if (doc.exists()) {
+        setTenant(doc.data());
+      }
+    });
+
+    const unsubAvailable = onSnapshot(collection(db, "available_integrations"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAvailableIntegrations(data);
+      setLoading(false);
+    });
+
+    return () => {
+      unsub();
+      unsubAvailable();
+    };
+  }, [user]);
+
+  // Derive items by merging static metadata with live Firestore status
+  const items: Integration[] = availableIntegrations.map((item) => {
+    const firestoreKey = item.id.replace(/-([a-z])/g, (g: any) => g[1].toUpperCase());
+    const dynamic = tenant?.integrations?.[firestoreKey];
+    
+    return {
+      ...item,
+      icon: iconMap[item.iconName] || Globe,
+      status: dynamic ? ((dynamic.status as IntegrationStatus) || (dynamic.connected ? "connected" : "disconnected")) : "disconnected",
+      connectedAccount: dynamic?.connectedAccount || dynamic?.account,
+      lastSync: dynamic?.lastSync,
+    } as Integration;
+  });
 
   const connectedCount = items.filter((i) => i.status === "connected").length;
   const errorCount = items.filter((i) => i.status === "error").length;
@@ -524,54 +465,60 @@ export default function IntegrationsPage() {
     if (integration) setConnecting(integration);
   };
 
-  const handleConnectConfirm = () => {
-    if (!connecting) return;
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === connecting.id
-          ? {
-              ...i,
-              status: "connected" as IntegrationStatus,
-              connectedAccount: "Connected account",
-              lastSync: "Just now",
-            }
-          : i
-      )
-    );
+  const handleConnectConfirm = async () => {
+    if (!connecting || !user) return;
+    
+    const firestoreKey = connecting.id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+    const path = `integrations.${firestoreKey}`;
+    await updateDoc(doc(db, "tenants", user.uid), {
+      [path]: {
+        connected: true,
+        status: "connected",
+        connectedAccount: connecting.id === 'twilio-sms' ? "+1 (415) 800-2200" : "Connected account",
+        lastSync: "Just now",
+      }
+    });
+    
     setConnecting(null);
   };
 
-  const handleDisconnect = (id: string) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === id
-          ? {
-              ...i,
-              status: "disconnected" as IntegrationStatus,
-              connectedAccount: undefined,
-              lastSync: undefined,
-            }
-          : i
-      )
-    );
+  const handleDisconnect = async (id: string) => {
+    if (!user) return;
+    
+    const firestoreKey = id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+    const path = `integrations.${firestoreKey}`;
+    await updateDoc(doc(db, "tenants", user.uid), {
+      [path]: {
+        connected: false,
+        status: "disconnected",
+      }
+    });
   };
 
-  const handleSync = (id: string) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === id ? { ...i, status: "syncing" as IntegrationStatus } : i
-      )
-    );
+  const handleSync = async (id: string) => {
+    if (!user) return;
+    
+    const firestoreKey = id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+    await updateDoc(doc(db, "tenants", user.uid), {
+      [`integrations.${firestoreKey}.status`]: "syncing",
+    });
+
     setTimeout(() => {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === id
-            ? { ...i, status: "connected" as IntegrationStatus, lastSync: "Just now" }
-            : i
-        )
-      );
+      updateDoc(doc(db, "tenants", user.uid), {
+        [`integrations.${firestoreKey}.status`]: "connected",
+        [`integrations.${firestoreKey}.lastSync`]: "Just now",
+      });
     }, 2500);
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center text-zinc-500">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        Loading integrations...
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

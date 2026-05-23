@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   PhoneCall,
   PhoneOff,
@@ -19,6 +19,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { db, auth } from "@/lib/firebase";
+import { collection, query, orderBy, limit, onSnapshot, doc, where, Timestamp } from "firebase/firestore";
 
 // ── Types ────────────────────────────────────────────
 type Outcome = "booked" | "transferred" | "message" | "unanswered";
@@ -33,73 +35,13 @@ interface Call {
   summary: string;
 }
 
-// ── Mock data ────────────────────────────────────────
-const recentCalls: Call[] = [
-  {
-    id: "1",
-    caller: "+1 (415) 823-4411",
-    time: "2 min ago",
-    duration: "3m 42s",
-    outcome: "booked",
-    agent: "Lisa",
-    summary: "Booked dental cleaning for Thursday 2 PM",
-  },
-  {
-    id: "2",
-    caller: "+1 (628) 901-5523",
-    time: "18 min ago",
-    duration: "1m 15s",
-    outcome: "message",
-    agent: "Lisa",
-    summary: "Asked about office hours, took a message",
-  },
-  {
-    id: "3",
-    caller: "+1 (510) 774-2200",
-    time: "34 min ago",
-    duration: "5m 08s",
-    outcome: "transferred",
-    agent: "Lisa",
-    summary: "Requested to speak with Dr. Martinez directly",
-  },
-  {
-    id: "4",
-    caller: "+1 (415) 229-6780",
-    time: "1h ago",
-    duration: "0m 28s",
-    outcome: "unanswered",
-    agent: "Lisa",
-    summary: "Call dropped before agent could respond",
-  },
-  {
-    id: "5",
-    caller: "+1 (669) 345-8871",
-    time: "1h 22m ago",
-    duration: "4m 55s",
-    outcome: "booked",
-    agent: "Lisa",
-    summary: "Rescheduled root canal to next Monday",
-  },
-  {
-    id: "6",
-    caller: "+1 (408) 512-3341",
-    time: "2h ago",
-    duration: "2m 10s",
-    outcome: "booked",
-    agent: "Lisa",
-    summary: "New patient inquiry, booked consultation",
-  },
-];
-
-const weeklyData = [
-  { day: "Mon", calls: 28, booked: 18 },
-  { day: "Tue", calls: 35, booked: 24 },
-  { day: "Wed", calls: 22, booked: 14 },
-  { day: "Thu", calls: 41, booked: 31 },
-  { day: "Fri", calls: 38, booked: 27 },
-  { day: "Sat", calls: 19, booked: 12 },
-  { day: "Sun", calls: 12, booked: 7 },
-];
+interface ChartDay {
+  day: string;
+  calls: number;
+  booked: number;
+  isToday?: boolean;
+  fullDate: string;
+}
 
 const outcomeConfig: Record<
   Outcome,
@@ -151,7 +93,7 @@ function StatCard({
       <div
         className={cn(
           "absolute -right-6 -top-6 h-16 w-16 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100",
-          accent ?? "bg-violet-600/20"
+          accent ?? "bg-violet-600/20",
         )}
       />
 
@@ -161,13 +103,13 @@ function StatCard({
             "flex h-9 w-9 items-center justify-center rounded-lg border",
             accent
               ? "border-white/[0.06] bg-white/[0.04]"
-              : "border-violet-500/20 bg-violet-500/10"
+              : "border-violet-500/20 bg-violet-500/10",
           )}
         >
           <Icon
             className={cn(
               "h-4 w-4",
-              accent ? "text-zinc-400" : "text-violet-400"
+              accent ? "text-zinc-400" : "text-violet-400",
             )}
           />
         </div>
@@ -177,7 +119,7 @@ function StatCard({
               "flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
               trend === "up"
                 ? "bg-emerald-500/10 text-emerald-400"
-                : "bg-red-500/10 text-red-400"
+                : "bg-red-500/10 text-red-400",
             )}
           >
             {trend === "up" ? (
@@ -195,9 +137,7 @@ function StatCard({
           {value}
         </p>
         <p className="mt-0.5 text-[13px] font-medium text-zinc-500">{label}</p>
-        {sub && (
-          <p className="mt-1.5 text-[11px] text-zinc-600">{sub}</p>
-        )}
+        {sub && <p className="mt-1.5 text-[11px] text-zinc-600">{sub}</p>}
       </div>
     </div>
   );
@@ -209,7 +149,7 @@ function OutcomeBadge({ outcome }: { outcome: Outcome }) {
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
-        cfg.classes
+        cfg.classes,
       )}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dotClass)} />
@@ -218,20 +158,18 @@ function OutcomeBadge({ outcome }: { outcome: Outcome }) {
   );
 }
 
-function WeeklyChart() {
-  const maxCalls = Math.max(...weeklyData.map((d) => d.calls));
+function WeeklyChart({ data }: { data: ChartDay[] }) {
+  const maxCalls = Math.max(...data.map((d) => d.calls), 1);
   const [hovered, setHovered] = useState<number | null>(null);
-  const today = 4; // Thursday index
+  const totalCalls = data.reduce((acc, d) => acc + d.calls, 0);
 
   return (
     <div className="rounded-xl border border-white/[0.06] bg-zinc-900/80 p-5">
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h2 className="text-[15px] font-semibold text-white">
-            Call volume
-          </h2>
+          <h2 className="text-[15px] font-semibold text-white">Call volume</h2>
           <p className="mt-0.5 text-[12px] text-zinc-500">
-            This week · 195 total calls
+            Last 7 days · {totalCalls} total calls
           </p>
         </div>
         <div className="flex items-center gap-4 text-[11px] text-zinc-500">
@@ -247,10 +185,10 @@ function WeeklyChart() {
       </div>
 
       <div className="flex items-end gap-2" style={{ height: 140 }}>
-        {weeklyData.map((d, i) => {
+        {data.map((d, i) => {
           const isHovered = hovered === i;
-          const isToday = i === today;
-          const totalH = Math.round((d.calls / maxCalls) * 120);
+          const isToday = d.isToday;
+          const totalH = d.calls === 0 ? 2 : Math.round((d.calls / maxCalls) * 120);
           const bookedH = Math.round((d.booked / maxCalls) * 120);
 
           return (
@@ -264,7 +202,9 @@ function WeeklyChart() {
               {isHovered && (
                 <div className="pointer-events-none absolute -top-14 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/[0.1] bg-zinc-800 px-3 py-1.5 text-[11px] text-zinc-300 shadow-xl">
                   <p className="font-semibold text-white">{d.day}</p>
-                  <p>{d.calls} calls · {d.booked} booked</p>
+                  <p>
+                    {d.calls} calls · {d.booked} booked
+                  </p>
                 </div>
               )}
 
@@ -280,8 +220,8 @@ function WeeklyChart() {
                     isToday
                       ? "bg-violet-500"
                       : isHovered
-                      ? "bg-violet-600/80"
-                      : "bg-violet-600/40"
+                        ? "bg-violet-600/80"
+                        : "bg-violet-600/40",
                   )}
                   style={{ height: totalH }}
                 />
@@ -292,8 +232,8 @@ function WeeklyChart() {
                     isToday
                       ? "bg-emerald-500"
                       : isHovered
-                      ? "bg-emerald-600/80"
-                      : "bg-emerald-600/40"
+                        ? "bg-emerald-600/80"
+                        : "bg-emerald-600/40",
                   )}
                   style={{ height: bookedH }}
                 />
@@ -316,8 +256,110 @@ function WeeklyChart() {
 }
 
 // ── Main Dashboard Page ──────────────────────────────
+
 export default function DashboardPage() {
+  const [user, setUser] = useState<any>(null);
+  const [tenant, setTenant] = useState<any>(null);
+  const [activeAgent, setActiveAgent] = useState<any>(null);
+  const [recentCalls, setRecentCalls] = useState<Call[]>([]);
+  const [chartData, setChartData] = useState<ChartDay[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
+    return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // 1. Listen to Tenant Doc (Stats)
+    const unsubTenant = onSnapshot(doc(db, "tenants", user.uid), (doc) => {
+      if (doc.exists()) setTenant(doc.data());
+    });
+
+    // 2. Listen for the primary Active Agent
+    const qAgent = query(
+      collection(db, "tenants", user.uid, "agents"),
+      where("isActive", "==", true),
+      limit(1)
+    );
+    const unsubAgent = onSnapshot(qAgent, (snap) => {
+      if (!snap.empty) setActiveAgent({ id: snap.docs[0].id, ...snap.docs[0].data() });
+      else setActiveAgent(null);
+    });
+
+    // 3. Listen for Recent Calls
+    const qCalls = query(
+      collection(db, "tenants", user.uid, "calls"),
+      orderBy("createdAt", "desc"),
+      limit(10)
+    );
+    const unsubCalls = onSnapshot(qCalls, (snap) => {
+      const mapped = snap.docs.map((doc) => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          caller: d.callerNumber || d.caller || "Unknown",
+          time: d.createdAt?.toDate ? d.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+          duration: d.duration ? `${Math.floor(d.duration / 60)}m ${d.duration % 60}s` : "0s",
+          outcome: d.outcome || "unanswered",
+          agent: d.agentName || "Agent",
+          summary: d.summary || "No summary available",
+        } as Call;
+      });
+      setRecentCalls(mapped);
+    });
+
+    // 4. Listen for 7-day stats for chart
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const qChart = query(
+      collection(db, "tenants", user.uid, "calls"),
+      where("createdAt", ">=", Timestamp.fromDate(sevenDaysAgo)),
+      orderBy("createdAt", "asc")
+    );
+
+    const unsubChart = onSnapshot(qChart, (snap) => {
+      const daysArr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const initialData: ChartDay[] = [];
+      
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        initialData.push({
+          day: daysArr[d.getDay()],
+          fullDate: d.toDateString(),
+          calls: 0,
+          booked: 0,
+          isToday: i === 0
+        });
+      }
+
+      snap.docs.forEach((doc) => {
+        const call = doc.data();
+        const callDate = call.createdAt?.toDate ? call.createdAt.toDate().toDateString() : null;
+        const dayObj = initialData.find(d => d.fullDate === callDate);
+        if (dayObj) {
+          dayObj.calls++;
+          if (call.outcome === 'booked') dayObj.booked++;
+        }
+      });
+
+      setChartData(initialData);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubTenant();
+      unsubAgent();
+      unsubCalls();
+      unsubChart();
+    };
+  }, [user]);
 
   function handleRefresh() {
     setRefreshing(true);
@@ -330,11 +372,11 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-white">
-            Good morning, John 👋
+            Good morning, {user?.displayName?.split(" ")[0] || "User"} 👋
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Thursday, May 23 · Lisa has handled{" "}
-            <span className="font-medium text-zinc-300">14 calls</span> today
+            {new Date().toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric' })} · {activeAgent?.name || "AI"} has handled{" "}
+            <span className="font-medium text-zinc-300">{tenant?.callsToday || 0} calls</span> today
           </p>
         </div>
 
@@ -362,15 +404,15 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Calls today"
-          value="14"
-          sub="vs 11 yesterday"
+          value={tenant?.callsToday?.toString() || "0"}
+          sub={`vs ${tenant?.callsYesterday || 0} yesterday`}
           icon={PhoneCall}
           trend="up"
           trendValue="+27%"
         />
         <StatCard
           label="Avg duration"
-          value="3m 12s"
+          value={tenant?.avgDuration || "0m 00s"}
           sub="across all calls"
           icon={Clock}
           trend="down"
@@ -379,8 +421,8 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Booking rate"
-          value="64%"
-          sub="9 of 14 calls"
+          value={`${tenant?.bookingRate || 0}%`}
+          sub={`${tenant?.bookingsToday || 0} of ${tenant?.callsToday || 0} calls`}
           icon={CalendarCheck}
           trend="up"
           trendValue="+12%"
@@ -388,8 +430,8 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Missed calls"
-          value="1"
-          sub="0.7% miss rate"
+          value={tenant?.missedCalls?.toString() || "0"}
+          sub={`${tenant?.missRate || 0}% miss rate`}
           icon={PhoneOff}
           accent="bg-red-600/20"
         />
@@ -399,7 +441,7 @@ export default function DashboardPage() {
       <div className="grid gap-3 lg:grid-cols-3">
         {/* Chart — spans 2 cols */}
         <div className="lg:col-span-2">
-          <WeeklyChart />
+          <WeeklyChart data={chartData} />
         </div>
 
         {/* Active agent card */}
@@ -424,16 +466,18 @@ export default function DashboardPage() {
                 <Bot className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-[15px] font-semibold text-white">Lisa</p>
-                <p className="text-[12px] text-zinc-500">Bright Dental · Friendly</p>
+                <p className="text-[15px] font-semibold text-white">{activeAgent?.name || "No active agent"}</p>
+                <p className="text-[12px] text-zinc-500">
+                  {activeAgent?.business || "Setup required"} · <span className="capitalize">{activeAgent?.tone || "standard"}</span>
+                </p>
               </div>
             </div>
 
             <div className="mt-4 space-y-2.5">
               {[
-                { label: "Phone", value: "+1 (415) 800-2200" },
-                { label: "Language", value: "English" },
-                { label: "FAQs trained", value: "12 questions" },
+                { label: "Phone", value: activeAgent?.phoneNumber || "—" },
+                { label: "Language", value: activeAgent?.language || "English" },
+                { label: "FAQs trained", value: `${activeAgent?.faqs?.length || 0} questions` },
               ].map(({ label, value }) => (
                 <div
                   key={label}
@@ -450,13 +494,15 @@ export default function DashboardPage() {
                 <Play className="h-3 w-3" />
                 Test call
               </button>
-              <a
-                href="/agents/1"
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
-              >
-                Configure
-                <ChevronRight className="h-3 w-3" />
-              </a>
+              {activeAgent && (
+                <a
+                  href={`/agents/${activeAgent.id}`}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
+                >
+                  Configure
+                  <ChevronRight className="h-3 w-3" />
+                </a>
+              )}
             </div>
           </div>
 
@@ -468,10 +514,10 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {(
                 [
-                  { outcome: "booked", count: 9, pct: 64 },
-                  { outcome: "transferred", count: 2, pct: 14 },
-                  { outcome: "message", count: 2, pct: 14 },
-                  { outcome: "unanswered", count: 1, pct: 7 },
+                  { outcome: "booked", count: tenant?.bookingsToday || 0, pct: tenant?.bookingRate || 0 },
+                  { outcome: "transferred", count: tenant?.transfersToday || 0, pct: 0 },
+                  { outcome: "message", count: tenant?.messagesToday || 0, pct: 0 },
+                  { outcome: "unanswered", count: tenant?.missedCalls || 0, pct: tenant?.missRate || 0 },
                 ] as { outcome: Outcome; count: number; pct: number }[]
               ).map(({ outcome, count, pct }) => {
                 const cfg = outcomeConfig[outcome];
@@ -480,7 +526,7 @@ export default function DashboardPage() {
                     <span
                       className={cn(
                         "h-1.5 w-1.5 shrink-0 rounded-full",
-                        cfg.dotClass
+                        cfg.dotClass,
                       )}
                     />
                     <span className="flex-1 text-[12px] text-zinc-400">
@@ -526,47 +572,59 @@ export default function DashboardPage() {
         </div>
 
         <div className="divide-y divide-white/[0.04]">
-          {recentCalls.map((call) => (
-            <div
-              key={call.id}
-              className="group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.02]"
-            >
-              {/* Caller avatar */}
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/[0.06] bg-zinc-800 text-[10px] font-semibold text-zinc-400">
-                <PhoneCall className="h-3.5 w-3.5" />
-              </div>
+          {loading ? (
+            <div className="p-6 text-center text-zinc-500">
+              Loading recent calls…
+            </div>
+          ) : recentCalls.length === 0 ? (
+            <div className="p-6 text-center text-zinc-500">
+              No recent calls found.
+            </div>
+          ) : (
+            recentCalls.map((call) => (
+              <div
+                key={call.id}
+                className="group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.02]"
+              >
+                {/* Caller avatar */}
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/[0.06] bg-zinc-800 text-[10px] font-semibold text-zinc-400">
+                  <PhoneCall className="h-3.5 w-3.5" />
+                </div>
 
-              {/* Caller + summary */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-zinc-200">
-                    {call.caller}
-                  </span>
-                  <span className="text-[11px] text-zinc-600">
-                    {call.time}
+                {/* Caller + summary */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-medium text-zinc-200">
+                      {call.caller}
+                    </span>
+                    <span className="text-[11px] text-zinc-600">
+                      {call.time}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-[12px] text-zinc-500">
+                    {call.summary}
+                  </p>
+                </div>
+
+                {/* Duration */}
+                <div className="hidden w-16 text-right sm:block">
+                  <span className="text-[12px] text-zinc-600">
+                    {call.duration}
                   </span>
                 </div>
-                <p className="mt-0.5 truncate text-[12px] text-zinc-500">
-                  {call.summary}
-                </p>
-              </div>
 
-              {/* Duration */}
-              <div className="hidden w-16 text-right sm:block">
-                <span className="text-[12px] text-zinc-600">{call.duration}</span>
-              </div>
+                {/* Outcome badge */}
+                <div className="shrink-0">
+                  <OutcomeBadge outcome={call.outcome} />
+                </div>
 
-              {/* Outcome badge */}
-              <div className="shrink-0">
-                <OutcomeBadge outcome={call.outcome} />
+                {/* More button */}
+                <button className="ml-1 rounded-md p-1 text-zinc-700 opacity-0 transition-all hover:bg-white/[0.06] hover:text-zinc-300 group-hover:opacity-100">
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
               </div>
-
-              {/* More button */}
-              <button className="ml-1 rounded-md p-1 text-zinc-700 opacity-0 transition-all hover:bg-white/[0.06] hover:text-zinc-300 group-hover:opacity-100">
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

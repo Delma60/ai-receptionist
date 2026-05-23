@@ -14,10 +14,12 @@ import {
   Bell,
   Mic,
   Zap,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut, onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, onSnapshot, collection, query, where, limit } from "firebase/firestore";
 
 const navItems = [
   {
@@ -35,6 +37,11 @@ const navItems = [
     href: "/calls",
     icon: PhoneCall,
     badge: 3,
+  },
+  {
+    label: "Teams",
+    href: "/teams",
+    icon: Users,
   },
   {
     label: "Integrations",
@@ -73,6 +80,8 @@ export default function DashboardLayout({
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [tenant, setTenant] = useState<any>(null);
+  const [activeAgent, setActiveAgent] = useState<any>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -80,6 +89,25 @@ export default function DashboardLayout({
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setTenant(null);
+      setActiveAgent(null);
+      return;
+    }
+
+    const unsubTenant = onSnapshot(doc(db, "tenants", user.uid), (doc) => {
+      setTenant(doc.data());
+    });
+
+    const unsubAgent = onSnapshot(query(collection(db, "tenants", user.uid, "agents"), where("isActive", "==", true), limit(1)), (snapshot) => {
+      if (!snapshot.empty) setActiveAgent(snapshot.docs[0].data());
+      else setActiveAgent(null);
+    });
+
+    return () => { unsubTenant(); unsubAgent(); };
+  }, [user]);
 
   async function handleLogout() {
     await signOut(auth);
@@ -127,10 +155,10 @@ export default function DashboardLayout({
             <StatusDot active={true} />
             <div className="overflow-hidden">
               <p className="text-[11px] font-medium text-emerald-400 leading-tight truncate">
-                Lisa — Active
+                {activeAgent?.name || "No agent"} — Active
               </p>
               <p className="text-[10px] text-zinc-500 leading-tight">
-                1 agent online
+                {activeAgent ? "1 agent online" : "Setup an agent"}
               </p>
             </div>
           </div>
@@ -198,17 +226,17 @@ export default function DashboardLayout({
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] text-zinc-500">Minutes used</p>
               <p className="text-[11px] font-semibold text-zinc-300">
-                312 / 500
+                {tenant?.minutesUsed || 0} / {tenant?.minutesLimit || 500}
               </p>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-violet-600 to-violet-400"
-                style={{ width: "62.4%" }}
+                style={{ width: `${Math.min(((tenant?.minutesUsed || 0) / (tenant?.minutesLimit || 500)) * 100, 100)}%` }}
               />
             </div>
             <p className="mt-1.5 text-[10px] text-zinc-600">
-              Starter plan · Resets Jun 1
+              {tenant?.plan?.charAt(0).toUpperCase() + tenant?.plan?.slice(1) || "Starter"} plan · Resets Jun 1
             </p>
           </div>
         )}

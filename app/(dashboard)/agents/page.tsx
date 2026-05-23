@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Bot,
   Plus,
@@ -17,6 +17,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { db, auth } from "@/lib/firebase";
+import { collection, onSnapshot, query } from "firebase/firestore";
 
 // ── Types ─────────────────────────────────────────────
 type AgentStatus = "active" | "inactive" | "draft";
@@ -36,66 +38,6 @@ interface Agent {
   createdAt: string;
   lastCallAt: string;
 }
-
-// ── Mock data ──────────────────────────────────────────
-const agents: Agent[] = [
-  {
-    id: "1",
-    name: "Lisa",
-    business: "Bright Dental",
-    tone: "friendly",
-    language: "English",
-    phoneNumber: "+1 (415) 800-2200",
-    status: "active",
-    callsHandled: 312,
-    bookingRate: 64,
-    faqCount: 12,
-    createdAt: "Jan 12, 2026",
-    lastCallAt: "2 min ago",
-  },
-  {
-    id: "2",
-    name: "Marcus",
-    business: "Prime Law Group",
-    tone: "professional",
-    language: "English",
-    phoneNumber: "+1 (628) 555-0190",
-    status: "active",
-    callsHandled: 187,
-    bookingRate: 51,
-    faqCount: 8,
-    createdAt: "Feb 3, 2026",
-    lastCallAt: "1h ago",
-  },
-  {
-    id: "3",
-    name: "Sofia",
-    business: "Luxe Salon & Spa",
-    tone: "casual",
-    language: "English / Spanish",
-    phoneNumber: "+1 (510) 555-0147",
-    status: "inactive",
-    callsHandled: 94,
-    bookingRate: 72,
-    faqCount: 15,
-    createdAt: "Mar 1, 2026",
-    lastCallAt: "3 days ago",
-  },
-  {
-    id: "4",
-    name: "Jordan",
-    business: "Summit Realty",
-    tone: "professional",
-    language: "English",
-    phoneNumber: "—",
-    status: "draft",
-    callsHandled: 0,
-    bookingRate: 0,
-    faqCount: 4,
-    createdAt: "May 20, 2026",
-    lastCallAt: "Never",
-  },
-];
 
 // ── Sub-components ────────────────────────────────────
 const statusConfig: Record<AgentStatus, { label: string; dot: string; badge: string }> = {
@@ -263,7 +205,37 @@ function AgentCard({ agent }: { agent: Agent }) {
 
 // ── Main Page ─────────────────────────────────────────
 export default function AgentsPage() {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [filter, setFilter] = useState<"all" | AgentStatus>("all");
+
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
+    return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(collection(db, "tenants", user.uid, "agents"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const agentsData = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          faqCount: data.faqs ? data.faqs.length : (data.faqCount || 0),
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString() : (data.createdAt || "Recently"),
+          lastCallAt: data.lastCallAt?.toDate ? data.lastCallAt.toDate().toLocaleTimeString() : (data.lastCallAt || "Never"),
+        } as Agent;
+      });
+      setAgents(agentsData);
+      setLoading(false);
+    });
+
+    return () => unsub();
+  }, [user]);
 
   const filtered =
     filter === "all" ? agents : agents.filter((a) => a.status === filter);
@@ -274,6 +246,10 @@ export default function AgentsPage() {
     inactive: agents.filter((a) => a.status === "inactive").length,
     draft: agents.filter((a) => a.status === "draft").length,
   };
+
+  if (loading) {
+    return <div className="flex h-[400px] items-center justify-center text-zinc-500">Loading agents...</div>;
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme, Theme } from "@/context/ThemeContext";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -31,27 +31,53 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/textarea";
-
-// Mock data for the tenant settings
-const MOCK_TENANT = {
-  name: "Bright Dental Group",
-  email: "admin@brightdental.com",
-  supportPhone: "+1 (415) 555-0199",
-  plan: "growth",
-  minutesUsed: 342,
-  minutesLimit: 500,
-  billingEmail: "billing@brightdental.com",
-  address: "123 Dental Plaza, San Francisco, CA 94103",
-};
+import { auth, db } from "@/lib/firebase";
+import { doc, onSnapshot, updateDoc, collection, query, orderBy, limit } from "firebase/firestore";
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
+  const [tenant, setTenant] = useState<any>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [user, setUser] = useState<any>(null);
   const { theme, setTheme } = useTheme();
 
-  const handleSave = () => {
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
+    return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = onSnapshot(doc(db, "tenants", user.uid), (doc) => {
+      if (doc.exists()) setTenant(doc.data());
+    });
+
+    const unsubInvoices = onSnapshot(
+      query(collection(db, "tenants", user.uid, "invoices"), orderBy("createdAt", "desc"), limit(5)),
+      (snapshot) => {
+        setInvoices(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      }
+    );
+
+    return () => {
+      unsub();
+      unsubInvoices();
+    };
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user || !tenant) return;
     setIsSaving(true);
-    setTimeout(() => setIsSaving(false), 1000);
+    await updateDoc(doc(db, "tenants", user.uid), tenant);
+    setIsSaving(false);
   };
+
+  if (!tenant)
+    return (
+      <div className="flex h-screen items-center justify-center text-zinc-500">
+        Loading settings...
+      </div>
+    );
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -150,7 +176,10 @@ export default function SettingsPage() {
                     Company name
                   </label>
                   <Input
-                    defaultValue={MOCK_TENANT.name}
+                    value={tenant.name || ""}
+                    onChange={(e) =>
+                      setTenant({ ...tenant, name: e.target.value })
+                    }
                     className="bg-white/[0.03] border-white/[0.08]"
                   />
                 </div>
@@ -159,7 +188,10 @@ export default function SettingsPage() {
                     Primary email
                   </label>
                   <Input
-                    defaultValue={MOCK_TENANT.email}
+                    value={tenant.email || ""}
+                    onChange={(e) =>
+                      setTenant({ ...tenant, email: e.target.value })
+                    }
                     className="bg-white/[0.03] border-white/[0.08]"
                   />
                 </div>
@@ -169,7 +201,10 @@ export default function SettingsPage() {
                   Office address
                 </label>
                 <Textarea
-                  defaultValue={MOCK_TENANT.address}
+                  value={tenant.address || ""}
+                  onChange={(e) =>
+                    setTenant({ ...tenant, address: e.target.value })
+                  }
                   className="bg-white/[0.03] border-white/[0.08] resize-none"
                   rows={2}
                 />
@@ -191,7 +226,10 @@ export default function SettingsPage() {
                     Default transfer number
                   </label>
                   <Input
-                    defaultValue={MOCK_TENANT.supportPhone}
+                    value={tenant.supportPhone || ""}
+                    onChange={(e) =>
+                      setTenant({ ...tenant, supportPhone: e.target.value })
+                    }
                     className="bg-white/[0.03] border-white/[0.08]"
                   />
                   <p className="text-[11px] text-zinc-600">
@@ -233,10 +271,10 @@ export default function SettingsPage() {
                         </div>
                         <div>
                           <p className="text-sm font-bold text-white uppercase tracking-wider">
-                            Growth Plan
+                            {tenant.plan || "Starter"} Plan
                           </p>
                           <p className="text-[12px] text-violet-300/70">
-                            $149 / month · Billed monthly
+                            Billed monthly
                           </p>
                         </div>
                       </div>
@@ -253,15 +291,15 @@ export default function SettingsPage() {
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-zinc-400">Monthly Usage</span>
                         <span className="text-white font-medium">
-                          {MOCK_TENANT.minutesUsed} / {MOCK_TENANT.minutesLimit}{" "}
-                          mins
+                          {tenant.minutesUsed || 0} /{" "}
+                          {tenant.minutesLimit || 500} mins
                         </span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
                         <div
                           className="h-full bg-violet-500 rounded-full"
                           style={{
-                            width: `${(MOCK_TENANT.minutesUsed / MOCK_TENANT.minutesLimit) * 100}%`,
+                            width: `${Math.min(((tenant.minutesUsed || 0) / (tenant.minutesLimit || 500)) * 100, 100)}%`,
                           }}
                         />
                       </div>
@@ -281,10 +319,10 @@ export default function SettingsPage() {
                         </div>
                         <div>
                           <p className="text-[13px] font-medium text-white">
-                            •••• •••• •••• 4242
+                            {tenant.paymentMethod?.brand || "VISA"} •••• {tenant.paymentMethod?.last4 || "4242"}
                           </p>
                           <p className="text-[11px] text-zinc-600">
-                            Expires 12/28
+                            Expires {tenant.paymentMethod?.expiry || "12/28"}
                           </p>
                         </div>
                       </div>
@@ -308,20 +346,25 @@ export default function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                {[1, 2, 3].map((i) => (
+                {invoices.length > 0 ? invoices.map((inv) => (
                   <div
-                    key={i}
+                    key={inv.id}
                     className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors group cursor-pointer"
                   >
                     <div>
                       <p className="text-[13px] font-medium text-zinc-200">
-                        Jan 0{i}, 2026
+                        {inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : inv.date || "Recent"}
                       </p>
-                      <p className="text-[11px] text-zinc-600">#INV-00{i}42</p>
+                      <p className="text-[11px] text-zinc-600">#{inv.invoiceNumber || inv.id.slice(0, 8)}</p>
                     </div>
-                    <ExternalLink className="h-3.5 w-3.5 text-zinc-700 group-hover:text-zinc-400 transition-colors" />
+                    <div className="flex items-center gap-3">
+                      <span className="text-[12px] font-medium text-zinc-400">${inv.amount}</span>
+                      <ExternalLink className="h-3.5 w-3.5 text-zinc-700 group-hover:text-zinc-400 transition-colors" />
+                    </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-center py-8 text-zinc-600 text-sm">No invoices found.</p>
+                )}
                 <div className="p-4 text-center">
                   <button className="text-[11px] text-violet-400 hover:underline">
                     View billing portal
@@ -347,21 +390,21 @@ export default function SettingsPage() {
                   name="Google Calendar"
                   description="Sync booking availability"
                   icon={Globe}
-                  connected={true}
+                  connected={tenant.integrations?.googleCalendar?.connected || false}
                   color="bg-blue-500"
                 />
                 <IntegrationCard
                   name="HubSpot"
                   description="Sync contacts and calls"
                   icon={Database}
-                  connected={false}
+                  connected={tenant.integrations?.hubspot?.connected || false}
                   color="bg-orange-500"
                 />
                 <IntegrationCard
                   name="GoHighLevel"
                   description="CRM and Lead management"
                   icon={Zap}
-                  connected={false}
+                  connected={tenant.integrations?.gohighlevel?.connected || false}
                   color="bg-blue-600"
                 />
               </div>
@@ -384,7 +427,7 @@ export default function SettingsPage() {
                   <Input
                     type="password"
                     readOnly
-                    value="sk_live_5123984712039487"
+                    value={tenant.apiKey || "••••••••••••••••"}
                     className="bg-white/[0.03] border-white/[0.08] font-mono text-xs"
                   />
                   <Button
