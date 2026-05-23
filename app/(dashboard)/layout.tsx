@@ -1,82 +1,286 @@
+"use client";
+
 import Link from "next/link";
-import { LayoutDashboard, Bot, Phone, Blocks, Settings } from "lucide-react";
-
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+  Bot,
+  LayoutDashboard,
+  PhoneCall,
+  Puzzle,
+  Settings,
+  ChevronLeft,
+  LogOut,
+  Bell,
+  Mic,
+  Zap,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// Navigation items based on your app's route structure
 const navItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Agents", url: "/agents", icon: Bot },
-  { title: "Calls", url: "/calls", icon: Phone },
-  { title: "Integrations", url: "/integrations", icon: Blocks },
-  { title: "Settings", url: "/settings", icon: Settings },
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    label: "Agents",
+    href: "/agents",
+    icon: Bot,
+  },
+  {
+    label: "Calls",
+    href: "/calls",
+    icon: PhoneCall,
+    badge: 3,
+  },
+  {
+    label: "Integrations",
+    href: "/integrations",
+    icon: Puzzle,
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: Settings,
+  },
 ];
+
+function StatusDot({ active }: { active: boolean }) {
+  return (
+    <span className="relative flex h-2 w-2">
+      {active && (
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+      )}
+      <span
+        className={cn(
+          "relative inline-flex rounded-full h-2 w-2",
+          active ? "bg-emerald-500" : "bg-zinc-500",
+        )}
+      />
+    </span>
+  );
+}
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <SidebarProvider>
-      {/* 1. The Sidebar Component */}
-      <Sidebar>
-        <SidebarHeader>
-          <div className="flex h-14 items-center px-4 font-semibold">
-            AI Receptionist
+    <div className="flex min-h-screen bg-zinc-950 font-[family-name:var(--font-geist-sans)]">
+      {/* ── SIDEBAR ─────────────────────────────────── */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-white/[0.06] bg-zinc-900/80 backdrop-blur-xl transition-all duration-300 ease-in-out",
+          collapsed ? "w-[72px]" : "w-[240px]",
+        )}
+      >
+        {/* Subtle gradient stripe at top */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
+
+        {/* Logo */}
+        <div
+          className={cn(
+            "flex items-center gap-3 px-5 py-5 border-b border-white/[0.06]",
+            collapsed && "justify-center px-0",
+          )}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600 shadow-lg shadow-violet-900/50">
+            <Mic className="h-4 w-4 text-white" />
           </div>
-        </SidebarHeader>
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <p className="text-sm font-semibold tracking-tight text-white leading-none">
+                Receptionly
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-0.5 tracking-widest uppercase">
+                AI Receptionist
+              </p>
+            </div>
+          )}
+        </div>
 
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Menu</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {navItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    {/* Using the `render` prop pattern from Base UI */}
-                    <SidebarMenuButton render={<Link href={item.url} />}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
+        {/* Active agent status pill */}
+        {!collapsed && (
+          <div className="mx-3 mt-3 mb-1 flex items-center gap-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+            <StatusDot active={true} />
+            <div className="overflow-hidden">
+              <p className="text-[11px] font-medium text-emerald-400 leading-tight truncate">
+                Lisa — Active
+              </p>
+              <p className="text-[10px] text-zinc-500 leading-tight">
+                1 agent online
+              </p>
+            </div>
+          </div>
+        )}
 
-        <SidebarFooter>
-          {/* Optional: Add user profile, logout, or upgrade buttons here */}
-        </SidebarFooter>
-      </Sidebar>
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+          {!collapsed && (
+            <p className="px-3 pb-2 text-[10px] font-medium tracking-widest text-zinc-600 uppercase">
+              Navigation
+            </p>
+          )}
+          {navItems.map(({ label, href, icon: Icon, badge }) => {
+            const active = pathname?.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150",
+                  collapsed && "justify-center px-0 w-full",
+                  active
+                    ? "bg-white/[0.08] text-white"
+                    : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
+                )}
+                title={collapsed ? label : undefined}
+              >
+                {/* Active indicator bar */}
+                {active && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-violet-500" />
+                )}
 
-      {/* 2. The Main Content Area wrapped in SidebarInset */}
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-4 border-b px-4 lg:px-6">
-          {/* SidebarTrigger toggles the sidebar on mobile and collapses it on desktop */}
-          <SidebarTrigger />
+                <Icon
+                  className={cn(
+                    "h-4 w-4 shrink-0 transition-colors",
+                    active
+                      ? "text-violet-400"
+                      : "text-zinc-500 group-hover:text-zinc-300",
+                  )}
+                />
 
-          {/* You can add breadcrumbs, search bars, or user menus here */}
-          <div className="flex-1"></div>
-        </header>
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 font-medium">{label}</span>
+                    {badge && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-600/90 px-1.5 text-[10px] font-bold text-white">
+                        {badge}
+                      </span>
+                    )}
+                  </>
+                )}
 
-        <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
-      </SidebarInset>
-    </SidebarProvider>
+                {/* Collapsed badge dot */}
+                {collapsed && badge && (
+                  <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-violet-500" />
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Divider + Usage */}
+        {!collapsed && (
+          <div className="mx-3 mb-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] text-zinc-500">Minutes used</p>
+              <p className="text-[11px] font-semibold text-zinc-300">
+                312 / 500
+              </p>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-600 to-violet-400"
+                style={{ width: "62.4%" }}
+              />
+            </div>
+            <p className="mt-1.5 text-[10px] text-zinc-600">
+              Starter plan · Resets Jun 1
+            </p>
+          </div>
+        )}
+
+        {/* Bottom: User + collapse */}
+        <div className="border-t border-white/[0.06]">
+          {/* User row */}
+          <div
+            className={cn(
+              "flex items-center gap-3 px-3 py-3",
+              collapsed && "justify-center px-0",
+            )}
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-[11px] font-bold text-white shadow">
+              JD
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-white truncate leading-tight">
+                  John Doe
+                </p>
+                <p className="text-[11px] text-zinc-500 truncate leading-tight">
+                  john@example.com
+                </p>
+              </div>
+            )}
+            {!collapsed && (
+              <button className="rounded-md p-1 text-zinc-600 hover:text-zinc-300 transition-colors">
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Collapse toggle */}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className={cn(
+              "flex w-full items-center gap-2 border-t border-white/[0.06] px-3 py-2.5 text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors",
+              collapsed && "justify-center px-0",
+            )}
+          >
+            <ChevronLeft
+              className={cn(
+                "h-3.5 w-3.5 transition-transform duration-300",
+                collapsed && "rotate-180",
+              )}
+            />
+            {!collapsed && <span>Collapse</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* ── MAIN CONTENT ────────────────────────────── */}
+      <div
+        className={cn(
+          "flex flex-1 flex-col transition-all duration-300 ease-in-out",
+          collapsed ? "ml-[72px]" : "ml-[240px]",
+        )}
+      >
+        <div className="flex h-screen flex-col p-2">
+          <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900/40 shadow-2xl">
+            {/* Top bar */}
+            <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] bg-zinc-900/60 px-6 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5 text-violet-400" />
+                <span className="text-[13px] font-medium text-zinc-300">
+                  {navItems.find((n) => pathname?.startsWith(n.href))?.label ??
+                    "Dashboard"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button className="relative rounded-lg p-2 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 transition-colors">
+                  <Bell className="h-4 w-4" />
+                  <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-violet-500" />
+                </button>
+                <div className="h-5 w-px bg-white/[0.08]" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-[11px] font-bold text-white">
+                  JD
+                </div>
+              </div>
+            </header>
+
+            {/* Page content */}
+            <main className="flex-1 overflow-auto p-6 text-zinc-100">
+              {children}
+            </main>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
