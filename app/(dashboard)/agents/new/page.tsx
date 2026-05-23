@@ -1,3 +1,650 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Bot,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Plus,
+  Trash2,
+  Phone,
+  Globe,
+  MessageSquare,
+  Sparkles,
+  User,
+  Volume2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// ── Types ──────────────────────────────────────────────
+interface FAQ {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+interface AgentForm {
+  name: string;
+  business: string;
+  greeting: string;
+  tone: "friendly" | "professional" | "casual";
+  language: string;
+  faqs: FAQ[];
+  phoneNumber: string;
+}
+
+// ── Steps config ───────────────────────────────────────
+const STEPS = [
+  { id: 1, label: "Identity", description: "Name & personality" },
+  { id: 2, label: "Knowledge", description: "FAQs & info" },
+  { id: 3, label: "Phone", description: "Assign a number" },
+  { id: 4, label: "Review", description: "Go live" },
+];
+
+// ── Tone options ───────────────────────────────────────
+const TONES = [
+  {
+    value: "friendly",
+    label: "Friendly",
+    desc: "Warm, approachable, conversational",
+    emoji: "😊",
+    color: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+    check: "bg-sky-500",
+  },
+  {
+    value: "professional",
+    label: "Professional",
+    desc: "Formal, precise, business-focused",
+    emoji: "💼",
+    color: "border-violet-500/40 bg-violet-500/10 text-violet-300",
+    check: "bg-violet-500",
+  },
+  {
+    value: "casual",
+    label: "Casual",
+    desc: "Relaxed, fun, easy-going",
+    emoji: "✌️",
+    color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+    check: "bg-emerald-500",
+  },
+] as const;
+
+const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese", "Mandarin", "English / Spanish", "English / French"];
+
+const PHONE_NUMBERS = [
+  { number: "+1 (415) 555-0182", area: "San Francisco, CA" },
+  { number: "+1 (628) 555-0147", area: "San Francisco, CA" },
+  { number: "+1 (510) 555-0193", area: "Oakland, CA" },
+  { number: "+1 (669) 555-0126", area: "San Jose, CA" },
+  { number: "+1 (408) 555-0171", area: "San Jose, CA" },
+];
+
+// ── Step components ────────────────────────────────────
+function StepIdentity({
+  form,
+  onChange,
+}: {
+  form: AgentForm;
+  onChange: (k: keyof AgentForm, v: string) => void;
+}) {
+  const selectedTone = TONES.find((t) => t.value === form.tone);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Give your agent an identity</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          This is how your agent introduces itself to callers.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-medium text-zinc-300 flex items-center gap-1.5">
+            <User className="h-3.5 w-3.5 text-zinc-500" />
+            Agent name
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. Lisa, Alex, Jordan"
+            value={form.name}
+            onChange={(e) => onChange("name", e.target.value)}
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-[14px] text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-1 focus:ring-violet-500/20"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-medium text-zinc-300 flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-zinc-500" />
+            Business name
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. Bright Dental"
+            value={form.business}
+            onChange={(e) => onChange("business", e.target.value)}
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-[14px] text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-1 focus:ring-violet-500/20"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-medium text-zinc-300 flex items-center gap-1.5">
+          <MessageSquare className="h-3.5 w-3.5 text-zinc-500" />
+          Greeting message
+        </label>
+        <textarea
+          rows={3}
+          placeholder={`e.g. "Hello! You've reached ${form.business || "Bright Dental"}. I'm ${form.name || "Lisa"}, your AI receptionist. How can I help you today?"`}
+          value={form.greeting}
+          onChange={(e) => onChange("greeting", e.target.value)}
+          className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-[14px] text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-1 focus:ring-violet-500/20"
+        />
+        <p className="text-[11px] text-zinc-600">This is the first thing callers hear when they call.</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[13px] font-medium text-zinc-300 flex items-center gap-1.5">
+          <Volume2 className="h-3.5 w-3.5 text-zinc-500" />
+          Tone & personality
+        </label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {TONES.map((tone) => (
+            <button
+              key={tone.value}
+              onClick={() => onChange("tone", tone.value)}
+              className={cn(
+                "relative rounded-xl border p-4 text-left transition-all",
+                form.tone === tone.value
+                  ? tone.color
+                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]"
+              )}
+            >
+              {form.tone === tone.value && (
+                <span className={cn("absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full", tone.check)}>
+                  <Check className="h-2.5 w-2.5 text-white" />
+                </span>
+              )}
+              <div className="text-xl mb-2">{tone.emoji}</div>
+              <p className={cn("text-[13px] font-semibold", form.tone === tone.value ? "" : "text-zinc-300")}>
+                {tone.label}
+              </p>
+              <p className={cn("text-[11px] mt-0.5", form.tone === tone.value ? "opacity-80" : "text-zinc-600")}>
+                {tone.desc}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-medium text-zinc-300 flex items-center gap-1.5">
+          <Globe className="h-3.5 w-3.5 text-zinc-500" />
+          Language
+        </label>
+        <select
+          value={form.language}
+          onChange={(e) => onChange("language", e.target.value)}
+          className="w-full rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2.5 text-[14px] text-white outline-none transition focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20"
+        >
+          {LANGUAGES.map((lang) => (
+            <option key={lang} value={lang} className="bg-zinc-900">
+              {lang}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Preview card */}
+      {(form.name || form.business) && (
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <p className="text-[11px] font-medium uppercase tracking-widest text-zinc-600 mb-3">Preview</p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 text-white font-semibold">
+              {form.name?.[0] ?? "?"}
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold text-white">
+                {form.name || "Your agent"}{form.business ? ` · ${form.business}` : ""}
+              </p>
+              <p className={cn("text-[12px] capitalize", selectedTone ? toneColor(form.tone) : "text-zinc-500")}>
+                {form.tone} · {form.language}
+              </p>
+            </div>
+          </div>
+          {form.greeting && (
+            <div className="mt-3 rounded-lg bg-white/[0.04] px-3 py-2.5">
+              <p className="text-[12px] text-zinc-400 italic">"{form.greeting}"</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function toneColor(tone: string) {
+  if (tone === "friendly") return "text-sky-400";
+  if (tone === "professional") return "text-violet-400";
+  return "text-emerald-400";
+}
+
+function StepKnowledge({
+  form,
+  onAddFAQ,
+  onUpdateFAQ,
+  onDeleteFAQ,
+}: {
+  form: AgentForm;
+  onAddFAQ: () => void;
+  onUpdateFAQ: (id: string, field: "question" | "answer", value: string) => void;
+  onDeleteFAQ: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Train your agent</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Add frequently asked questions so your agent can answer callers accurately.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {form.faqs.map((faq, i) => (
+          <div
+            key={faq.id}
+            className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-600">
+                Q&A #{i + 1}
+              </span>
+              <button
+                onClick={() => onDeleteFAQ(faq.id)}
+                className="rounded-md p-1 text-zinc-700 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-400"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Question (e.g. What are your opening hours?)"
+              value={faq.question}
+              onChange={(e) => onUpdateFAQ(faq.id, "question", e.target.value)}
+              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[13px] text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20"
+            />
+            <textarea
+              rows={2}
+              placeholder="Answer (e.g. We're open Mon–Fri 9am–6pm, Sat 10am–4pm.)"
+              value={faq.answer}
+              onChange={(e) => onUpdateFAQ(faq.id, "answer", e.target.value)}
+              className="w-full resize-none rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[13px] text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20"
+            />
+          </div>
+        ))}
+
+        <button
+          onClick={onAddFAQ}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3.5 text-[13px] font-medium text-zinc-500 transition-all hover:border-violet-500/30 hover:bg-violet-500/5 hover:text-violet-400"
+        >
+          <Plus className="h-4 w-4" />
+          Add FAQ
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10">
+            <Sparkles className="h-4 w-4 text-violet-400" />
+          </div>
+          <div>
+            <p className="text-[13px] font-medium text-zinc-300">Tips for great FAQs</p>
+            <ul className="mt-1.5 space-y-1 text-[12px] text-zinc-500">
+              <li>• Include hours, location, services, and pricing</li>
+              <li>• Add common objections and how to handle them</li>
+              <li>• Keep answers concise — under 3 sentences</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepPhone({
+  form,
+  onChange,
+}: {
+  form: AgentForm;
+  onChange: (k: keyof AgentForm, v: string) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Assign a phone number</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Choose a new number or use your own. Callers will reach your agent at this number.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[13px] font-medium text-zinc-300">Available numbers</p>
+        <div className="space-y-2">
+          {PHONE_NUMBERS.map((num) => (
+            <button
+              key={num.number}
+              onClick={() => onChange("phoneNumber", num.number)}
+              className={cn(
+                "flex w-full items-center justify-between rounded-xl border px-4 py-3.5 text-left transition-all",
+                form.phoneNumber === num.number
+                  ? "border-violet-500/40 bg-violet-500/10"
+                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <Phone
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    form.phoneNumber === num.number ? "text-violet-400" : "text-zinc-600"
+                  )}
+                />
+                <div>
+                  <p
+                    className={cn(
+                      "text-[14px] font-semibold font-mono",
+                      form.phoneNumber === num.number ? "text-white" : "text-zinc-300"
+                    )}
+                  >
+                    {num.number}
+                  </p>
+                  <p className="text-[11px] text-zinc-600">{num.area}</p>
+                </div>
+              </div>
+              {form.phoneNumber === num.number && (
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-white/[0.06]" />
+        </div>
+        <div className="relative flex justify-center text-[11px] uppercase">
+          <span className="bg-zinc-950 px-3 text-zinc-600 tracking-widest">or</span>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-medium text-zinc-300">
+          Port your existing number
+        </label>
+        <input
+          type="tel"
+          placeholder="+1 (555) 000-0000"
+          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-[14px] font-mono text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-1 focus:ring-violet-500/20"
+        />
+        <p className="text-[11px] text-zinc-600">Number porting takes 1–3 business days.</p>
+      </div>
+
+      <button
+        onClick={() => onChange("phoneNumber", "")}
+        className="text-[12px] text-zinc-600 hover:text-zinc-400 transition-colors underline underline-offset-2"
+      >
+        Skip for now — assign a number later
+      </button>
+    </div>
+  );
+}
+
+function StepReview({ form }: { form: AgentForm }) {
+  const checks = [
+    { label: "Agent name set", ok: !!form.name },
+    { label: "Business name set", ok: !!form.business },
+    { label: "Greeting written", ok: !!form.greeting },
+    { label: "Tone selected", ok: !!form.tone },
+    { label: "FAQs added", ok: form.faqs.some((f) => f.question && f.answer) },
+    { label: "Phone number assigned", ok: !!form.phoneNumber },
+  ];
+
+  const allGood = checks.every((c) => c.ok);
+  const readyCount = checks.filter((c) => c.ok).length;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Review & launch</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Check everything looks right before going live.
+        </p>
+      </div>
+
+      {/* Agent preview */}
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 text-white font-semibold text-lg shadow-lg shadow-violet-900/40">
+            {form.name?.[0] ?? <Bot className="h-6 w-6" />}
+          </div>
+          <div>
+            <p className="text-[15px] font-semibold text-white">
+              {form.name || "Unnamed agent"}
+            </p>
+            <p className="text-[12px] text-zinc-500">{form.business || "No business set"}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2.5 text-[13px]">
+          {[
+            { label: "Tone", value: form.tone, color: toneColor(form.tone) },
+            { label: "Language", value: form.language },
+            { label: "Phone", value: form.phoneNumber || "Not assigned" },
+            { label: "FAQs", value: `${form.faqs.filter((f) => f.question).length} questions` },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-zinc-600">{label}</span>
+              <span className={cn("font-medium capitalize", color ?? "text-zinc-300")}>{value}</span>
+            </div>
+          ))}
+        </div>
+
+        {form.greeting && (
+          <div className="mt-4 rounded-lg bg-white/[0.04] border border-white/[0.04] px-3 py-2.5">
+            <p className="text-[11px] text-zinc-600 mb-1">Greeting</p>
+            <p className="text-[12px] text-zinc-400 italic">"{form.greeting}"</p>
+          </div>
+        )}
+      </div>
+
+      {/* Checklist */}
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[13px] font-medium text-zinc-300">Setup checklist</p>
+          <span className="text-[12px] text-zinc-500">{readyCount}/{checks.length} complete</span>
+        </div>
+        <div className="space-y-2">
+          {checks.map(({ label, ok }) => (
+            <div key={label} className="flex items-center gap-2.5">
+              <div
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+                  ok ? "bg-emerald-500" : "border border-white/[0.1] bg-white/[0.04]"
+                )}
+              >
+                {ok && <Check className="h-2.5 w-2.5 text-white" />}
+              </div>
+              <span className={cn("text-[12px]", ok ? "text-zinc-300" : "text-zinc-600")}>
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {!allGood && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+          <p className="text-[12px] text-amber-400">
+            Some fields are incomplete. You can still save as draft and finish later.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Wizard ────────────────────────────────────────
 export default function NewAgentPage() {
-  return <div>New Agent Page Placeholder</div>;
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState<AgentForm>({
+    name: "",
+    business: "",
+    greeting: "",
+    tone: "friendly",
+    language: "English",
+    faqs: [{ id: "1", question: "", answer: "" }],
+    phoneNumber: "",
+  });
+
+  function handleChange(key: keyof AgentForm, value: string) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function addFAQ() {
+    setForm((prev) => ({
+      ...prev,
+      faqs: [...prev.faqs, { id: Date.now().toString(), question: "", answer: "" }],
+    }));
+  }
+
+  function updateFAQ(id: string, field: "question" | "answer", value: string) {
+    setForm((prev) => ({
+      ...prev,
+      faqs: prev.faqs.map((f) => (f.id === id ? { ...f, [field]: value } : f)),
+    }));
+  }
+
+  function deleteFAQ(id: string) {
+    setForm((prev) => ({
+      ...prev,
+      faqs: prev.faqs.filter((f) => f.id !== id),
+    }));
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      {/* Back link */}
+      <div className="mb-6">
+        <a
+          href="/agents"
+          className="flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-300 transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back to agents
+        </a>
+      </div>
+
+      {/* Step progress */}
+      <div className="mb-8">
+        <div className="flex items-center gap-0">
+          {STEPS.map((s, i) => (
+            <div key={s.id} className="flex items-center flex-1 last:flex-none">
+              <button
+                onClick={() => s.id < step && setStep(s.id)}
+                className={cn(
+                  "flex flex-col items-center gap-1 text-center",
+                  s.id < step ? "cursor-pointer" : "cursor-default"
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full border text-[12px] font-semibold transition-all",
+                    step === s.id
+                      ? "border-violet-500 bg-violet-600 text-white shadow-lg shadow-violet-900/40"
+                      : s.id < step
+                      ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-400"
+                      : "border-white/[0.08] bg-white/[0.04] text-zinc-600"
+                  )}
+                >
+                  {s.id < step ? <Check className="h-3.5 w-3.5" /> : s.id}
+                </div>
+                <div className="hidden sm:block">
+                  <p
+                    className={cn(
+                      "text-[11px] font-medium",
+                      step === s.id ? "text-white" : s.id < step ? "text-emerald-400" : "text-zinc-600"
+                    )}
+                  >
+                    {s.label}
+                  </p>
+                </div>
+              </button>
+              {i < STEPS.length - 1 && (
+                <div
+                  className={cn(
+                    "flex-1 h-px mx-2 transition-all",
+                    s.id < step ? "bg-emerald-500/30" : "bg-white/[0.06]"
+                  )}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Step content */}
+      <div className="rounded-xl border border-white/[0.06] bg-zinc-900/80 p-6 mb-6">
+        {step === 1 && <StepIdentity form={form} onChange={handleChange} />}
+        {step === 2 && (
+          <StepKnowledge
+            form={form}
+            onAddFAQ={addFAQ}
+            onUpdateFAQ={updateFAQ}
+            onDeleteFAQ={deleteFAQ}
+          />
+        )}
+        {step === 3 && <StepPhone form={form} onChange={handleChange} />}
+        {step === 4 && <StepReview form={form} />}
+      </div>
+
+      {/* Navigation */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setStep((s) => Math.max(1, s - 1))}
+          disabled={step === 1}
+          className="flex items-center gap-2 rounded-lg border border-white/[0.06] px-4 py-2 text-[13px] font-medium text-zinc-400 transition-all hover:border-white/[0.1] hover:text-zinc-200 disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </button>
+
+        <div className="flex items-center gap-2">
+          {step < 4 && (
+            <button className="text-[13px] text-zinc-600 hover:text-zinc-400 transition-colors px-3 py-2">
+              Save draft
+            </button>
+          )}
+          {step < 4 ? (
+            <button
+              onClick={() => setStep((s) => Math.min(4, s + 1))}
+              className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-[13px] font-medium text-white transition-all hover:bg-violet-500"
+            >
+              Continue
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <a
+              href="/agents"
+              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-emerald-500"
+            >
+              <Check className="h-4 w-4" />
+              Launch agent
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
