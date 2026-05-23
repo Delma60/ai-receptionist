@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useTheme, Theme } from "@/context/ThemeContext";
+import { Switch } from "@/components/ui/switch";
 import {
   User,
   CreditCard,
@@ -44,6 +46,7 @@ const MOCK_TENANT = {
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   const handleSave = () => {
     setIsSaving(true);
@@ -76,6 +79,30 @@ export default function SettingsPage() {
             </>
           )}
         </Button>
+      </div>
+
+      {/* ── Theme Toggle ────────────────────────────────── */}
+      <div className="flex items-center gap-4 border border-white/[0.06] rounded-lg p-4 bg-zinc-900/80">
+        <span className="text-zinc-300 font-medium">Dark Mode</span>
+        <Switch
+          checked={theme === "dark"}
+          onCheckedChange={(checked: boolean) =>
+            setTheme(checked ? "dark" : "light")
+          }
+        />
+        <span className="text-xs text-zinc-500">
+          (
+          {theme === "system"
+            ? "System"
+            : theme.charAt(0).toUpperCase() + theme.slice(1)}
+          )
+        </span>
+        <button
+          className="ml-4 text-xs text-violet-400 hover:underline"
+          onClick={() => setTheme(theme === "system" ? "light" : "system")}
+        >
+          {theme === "system" ? "Disable System" : "Use System"}
+        </button>
       </div>
 
       {/* ── Tabs Navigation ─────────────────────────────── */}

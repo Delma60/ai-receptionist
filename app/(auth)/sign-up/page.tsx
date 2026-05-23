@@ -1,11 +1,41 @@
+'use client'
 import Link from "next/link";
 import { Bot } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/Button";
+import { useState } from "react";
+import { auth } from "@/lib/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 
 export default function SignUpPage() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const form = e.currentTarget;
+    const name = (form.elements.namedItem("name") as HTMLInputElement)?.value;
+    const email = (form.elements.namedItem("email") as HTMLInputElement)?.value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement)
+      ?.value;
+    try {
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      if (name) await updateProfile(userCred.user, { displayName: name });
+      // Optionally redirect or show success
+    } catch (err: any) {
+      setError(err.message || "Sign up failed");
+    } finally {
+      setLoading(false);
+    }
+  }
   return (
     <div className="grid min-h-screen w-full grid-cols-1 md:grid-cols-2">
       {/* Brand & Testimonial Section */}
@@ -57,7 +87,7 @@ export default function SignUpPage() {
             </p>
           </div>
 
-          <form>
+          <form onSubmit={handleSignUp}>
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Full Name</Label>
@@ -76,9 +106,12 @@ export default function SignUpPage() {
                 <Label htmlFor="password">Password</Label>
                 <Input id="password" type="password" required />
               </div>
-              <Button type="submit" className="w-full mt-2">
-                Create Account
+              <Button type="submit" className="w-full mt-2" disabled={loading}>
+                {loading ? "Creating..." : "Create Account"}
               </Button>
+              {error && (
+                <div className="text-red-500 text-xs mt-2">{error}</div>
+              )}
             </div>
           </form>
 

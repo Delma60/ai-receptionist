@@ -18,6 +18,11 @@
     - [Call Flow](#call-flow)
   - [Firebase Data Model](#firebase-data-model)
   - [Project Structure](#project-structure)
+  - [Admin Panel](#admin-panel)
+    - [Admin Features](#admin-features)
+    - [Admin Data Model](#admin-data-model)
+    - [Admin Routes](#admin-routes)
+    - [Admin Tech Notes](#admin-tech-notes)
   - [Environment Variables](#environment-variables)
   - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
@@ -200,11 +205,23 @@ Built for:
 │   │   ├── calls/              # Call logs & transcripts
 │   │   ├── integrations/       # Calendar, CRM connections
 │   │   └── settings/           # Billing, account, phone
+│   ├── (admin)/                # Admin panel (superuser only)
+│   │   ├── layout.tsx
+│   │   ├── admin/              # Admin overview
+│   │   ├── tenants/            # All tenant accounts
+│   │   │   └── [tenantId]/     # Individual tenant detail
+│   │   ├── calls/              # Platform-wide call logs
+│   │   ├── billing/            # Stripe revenue & subscriptions
+│   │   └── system/             # Feature flags, config, health
 │   ├── onboarding/             # First-time setup wizard
 │   └── api/
 │       ├── agents/
 │       ├── calls/
 │       ├── phone/
+│       ├── admin/              # Admin-only API routes
+│       │   ├── tenants/
+│       │   ├── impersonate/
+│       │   └── metrics/
 │       └── webhooks/
 │           ├── vapi/
 │           ├── twilio/
@@ -215,6 +232,11 @@ Built for:
 │   ├── agent-builder/          # FAQ editor, voice config
 │   ├── call-log/               # Transcript viewer, filters
 │   └── dashboard/              # Stats cards, charts
+│   └── admin/                  # Admin-specific components
+│       ├── TenantTable.tsx
+│       ├── RevenueChart.tsx
+│       ├── SystemHealth.tsx
+│       └── ImpersonateBanner.tsx
 │
 ├── lib/
 │   ├── firebase.ts             # Firebase client init
@@ -249,6 +271,89 @@ Built for:
 ├── tailwind.config.ts
 └── README.md
 ```
+
+---
+
+## Admin Panel
+
+The admin panel is a superuser-only area accessible at `/admin`. It is completely separate from the tenant-facing dashboard and is protected by a Clerk-based role check (`role === "admin"`) enforced in both middleware and individual API routes.
+
+> ⚠️ Admin routes must **never** be accessible to regular tenants. All admin API routes verify the superuser role server-side before processing any request.
+
+### Admin Features
+
+| Feature | Description |
+|---|---|
+| **Tenant Overview** | List all registered tenants with plan, status, usage, and MRR contribution |
+| **Tenant Detail** | Drill into a single tenant — their agents, call history, billing status, and account health |
+| **Impersonation** | Log in as any tenant (read-only view) for support and debugging without knowing their credentials |
+| **Platform Call Logs** | View all calls across every tenant — filterable by date, outcome, agent, and tenant |
+| **Revenue Dashboard** | Stripe MRR, churn rate, plan distribution, and recent subscription events |
+| **Usage Monitoring** | Per-tenant minute consumption vs plan limits; flag accounts approaching overage |
+| **Feature Flags** | Enable or disable features per tenant or globally without a deploy |
+| **System Health** | Vapi, Twilio, and Stripe API status; Firebase usage; webhook error rates |
+| **Audit Log** | Immutable log of all admin actions (impersonation, plan changes, deletions) |
+
+### Admin Data Model
+
+```
+/admins/{userId}
+  - email: string
+  - role: "superadmin" | "support"
+  - createdAt: timestamp
+
+/platform/metrics
+  - totalTenants: number
+  - activeTenants: number
+  - totalCallsToday: number
+  - totalMinutesToday: number
+  - mrr: number
+  - updatedAt: timestamp
+
+/auditLog/{logId}
+  - adminId: string
+  - action: "impersonate" | "plan_change" | "tenant_delete" | "feature_flag"
+  - targetTenantId: string
+  - metadata: object
+  - createdAt: timestamp
+
+/featureFlags/{flagId}
+  - name: string
+  - enabled: boolean
+  - enabledForTenants: string[]   // tenant-specific overrides
+  - description: string
+  - updatedAt: timestamp
+  - updatedBy: string             // adminId
+```
+
+### Admin Routes
+
+```
+GET  /api/admin/metrics              # Platform-wide stats
+GET  /api/admin/tenants              # Paginated tenant list
+GET  /api/admin/tenants/[id]         # Single tenant detail
+PATCH /api/admin/tenants/[id]        # Update plan, status, limits
+DELETE /api/admin/tenants/[id]       # Permanently delete tenant
+
+POST /api/admin/impersonate          # Generate scoped session token
+DELETE /api/admin/impersonate        # End impersonation session
+
+GET  /api/admin/calls                # All platform calls (paginated)
+GET  /api/admin/billing              # Stripe revenue summary
+
+GET  /api/admin/flags                # List all feature flags
+PATCH /api/admin/flags/[flagId]      # Toggle flag globally or per tenant
+
+GET  /api/admin/system/health        # Third-party API status checks
+```
+
+### Admin Tech Notes
+
+- **Auth guard:** Clerk `auth().protect()` + custom `isAdmin()` check on every admin API route and in `middleware.ts` for all `(admin)` layout routes.
+- **Impersonation:** Generate a short-lived Firestore token scoped to one tenant's data. The `ImpersonateBanner` component renders persistently during an impersonation session with a one-click exit.
+- **Audit logging:** Every mutating admin API action writes to `/auditLog` via a shared `logAdminAction()` helper before returning a response.
+- **Feature flags:** Checked server-side via a `getFlag(flagName, tenantId?)` utility. Client-side flag state is passed as props or via a context provider — never fetched directly from Firestore on the client.
+- **Role separation:** `"superadmin"` can delete tenants and change plans. `"support"` role can impersonate and view logs but cannot mutate billing or delete accounts.
 
 ---
 
@@ -293,6 +398,9 @@ RESEND_API_KEY=
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Admin
+ADMIN_CLERK_ROLE=admin                # Clerk role metadata key value
 ```
 
 ---
