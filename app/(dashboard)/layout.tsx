@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Bot,
   LayoutDashboard,
@@ -16,7 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 const navItems = [
@@ -72,6 +72,14 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   async function handleLogout() {
     await signOut(auth);
@@ -214,16 +222,16 @@ export default function DashboardLayout({
               collapsed && "justify-center px-0",
             )}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-[11px] font-bold text-white shadow">
-              JD
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-[11px] font-bold text-white shadow uppercase">
+              {user?.displayName?.[0] || user?.email?.[0] || "U"}
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-white truncate leading-tight">
-                  John Doe
+                  {user?.displayName || "User"}
                 </p>
                 <p className="text-[11px] text-zinc-500 truncate leading-tight">
-                  john@example.com
+                  {user?.email}
                 </p>
               </div>
             )}
@@ -280,8 +288,8 @@ export default function DashboardLayout({
                   <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-violet-500" />
                 </button>
                 <div className="h-5 w-px bg-white/[0.08]" />
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-[11px] font-bold text-white">
-                  JD
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-[11px] font-bold text-white shadow uppercase">
+                  {user?.displayName?.[0] || user?.email?.[0] || "U"}
                 </div>
               </div>
             </header>

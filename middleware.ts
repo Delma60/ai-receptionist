@@ -10,16 +10,17 @@ export default function middleware(req: NextRequest) {
     pathname === "/" || 
     pathname.startsWith("/sign-in") || 
     pathname.startsWith("/sign-up") || 
+    pathname.startsWith("/api/auth") || 
     pathname.startsWith("/api/webhooks");
+
+  // Redirect logged-in users away from auth pages or landing page to the dashboard
+  if (session && (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up") || pathname === "/")) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
 
   // If not a public path and no session exists, redirect to sign-in
   if (!isPublicPath && !session) {
     return NextResponse.redirect(new URL("/sign-in", req.url));
-  }
-
-  // Redirect logged-in users away from auth pages to the dashboard
-  if (session && (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up"))) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();
