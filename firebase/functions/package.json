@@ -1,0 +1,5 @@
+{
+  "name": "functions",
+  "main": "src/index.ts",
+  "dependencies": {}
+}
