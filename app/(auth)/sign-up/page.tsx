@@ -1,20 +1,25 @@
 'use client'
 import Link from "next/link";
 import { Bot } from "lucide-react";
-
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/Button";
 import { useState } from "react";
-import { auth } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { useSignUp } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 export default function SignUpPage() {
+  const { signUp } = useSignUp();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [code, setCode] = useState("");
+  const router = useRouter();
 
   async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!isLoaded) return;
+
     setError("");
     setLoading(true);
     const form = e.currentTarget;
@@ -23,15 +28,36 @@ export default function SignUpPage() {
     const password = (form.elements.namedItem("password") as HTMLInputElement)
       ?.value;
     try {
-      const userCred = await createUserWithEmailAndPassword(
-        auth,
-        email,
+      await signUp.create({
+        emailAddress: email,
         password,
-      );
-      if (name) await updateProfile(userCred.user, { displayName: name });
-      // Optionally redirect or show success
+        firstName: name,
+      });
+
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setPendingVerification(true);
     } catch (err: any) {
-      setError(err.message || "Sign up failed");
+      setError(err.errors?.[0]?.message || "Sign up failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerification(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!isLoaded) return;
+
+    setLoading(true);
+    try {
+      const completeSignUp = await signUp.attemptEmailAddressVerification({
+        code,
+      });
+      if (completeSignUp.status === "complete") {
+        await setActive({ session: completeSignUp.createdSessionId });
+        router.push("/dashboard");
+      }
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || "Verification failed");
     } finally {
       setLoading(false);
     }
@@ -87,8 +113,37 @@ export default function SignUpPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSignUp}>
-            <div className="grid gap-4">
+          {pendingVerification ? (
+            <form onSubmit={handleVerification}>
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="code">Verification Code</Label>
+                  <p className="text-xs text-muted-foreground">
+                    We sent a code to your email. Enter it below to verify.
+                  </p>
+                  <Input
+                    id="code"
+                    type="text"
+                    placeholder="123456"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full mt-2" disabled={loading}>
+                  {loading ? "Verifying..." : "Verify Email"}
+                </Button>
+                {error && (
+                  <div className="text-red-500 text-xs mt-2">{error}</div>
+                )}
+                <Button variant="link" onClick={() => setPendingVerification(false)} className="text-xs">
+                  Back to registration
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUp}>
+              <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input id="name" type="text" placeholder="John Doe" required />
@@ -112,8 +167,9 @@ export default function SignUpPage() {
               {error && (
                 <div className="text-red-500 text-xs mt-2">{error}</div>
               )}
-            </div>
-          </form>
+              </div>
+            </form>
+          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -131,6 +187,7 @@ export default function SignUpPage() {
               variant="outline"
               type="button"
               className="w-full font-normal"
+              onClick={signUpWithGoogle}
             >
               <svg
                 role="img"
@@ -146,6 +203,7 @@ export default function SignUpPage() {
               variant="outline"
               type="button"
               className="w-full font-normal"
+              onClick={signUpWithGithub}
             >
               <svg
                 role="img"

@@ -1,20 +1,23 @@
-'use client'
+"use client";
 import Link from "next/link";
 import { Bot } from "lucide-react";
-
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/Button";
 import { useState } from "react";
-import { auth } from "@/lib/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { useSignIn } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
+  const { isLoaded, signIn, setActive } = useSignIn();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
 
   async function handleSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!isLoaded) return;
+
     setError("");
     setLoading(true);
     const form = e.currentTarget;
@@ -22,10 +25,19 @@ export default function SignInPage() {
     const password = (form.elements.namedItem("password") as HTMLInputElement)
       ?.value;
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // Optionally redirect or show success
+      const result = await signIn.create({
+        identifier: email,
+        password,
+      });
+
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        router.push("/dashboard");
+      } else {
+        setError("Additional verification steps required.");
+      }
     } catch (err: any) {
-      setError(err.message || "Sign in failed");
+      setError(err.errors?.[0]?.message || "Sign in failed");
     } finally {
       setLoading(false);
     }
@@ -127,6 +139,7 @@ export default function SignInPage() {
               variant="outline"
               type="button"
               className="w-full font-normal"
+              onClick={signInWithGoogle}
             >
               <svg
                 role="img"
@@ -142,6 +155,7 @@ export default function SignInPage() {
               variant="outline"
               type="button"
               className="w-full font-normal"
+              onClick={signInWithGithub}
             >
               <svg
                 role="img"
