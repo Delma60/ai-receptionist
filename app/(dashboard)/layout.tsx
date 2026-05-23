@@ -15,6 +15,8 @@ import {
   Mic,
   Zap,
   Users,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut, onAuthStateChanged, User } from "firebase/auth";
@@ -79,6 +81,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [tenant, setTenant] = useState<any>(null);
   const [activeAgent, setActiveAgent] = useState<any>(null);
@@ -117,13 +120,23 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-zinc-950 font-[family-name:var(--font-geist-sans)]">
+      {/* Mobile Backdrop */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
       {/* ── SIDEBAR ─────────────────────────────────── */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-white/[0.06] bg-zinc-900/80 backdrop-blur-xl transition-all duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-white/[0.06] bg-zinc-900/80 backdrop-blur-xl transition-all duration-300 ease-in-out lg:translate-x-0",
           collapsed ? "w-[72px]" : "w-[240px]",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
+
         {/* Subtle gradient stripe at top */}
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
 
@@ -134,6 +147,12 @@ export default function DashboardLayout({
             collapsed && "justify-center px-0",
           )}
         >
+          <button
+            onClick={() => setIsMobileOpen(false)}
+            className="absolute right-4 top-5 text-zinc-500 hover:text-white lg:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600 shadow-lg shadow-violet-900/50">
             <Mic className="h-4 w-4 text-white" />
           </div>
@@ -177,6 +196,7 @@ export default function DashboardLayout({
               <Link
                 key={href}
                 href={href}
+                onClick={() => setIsMobileOpen(false)}
                 className={cn(
                   "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150",
                   collapsed && "justify-center px-0 w-full",
@@ -295,8 +315,8 @@ export default function DashboardLayout({
       {/* ── MAIN CONTENT ────────────────────────────── */}
       <div
         className={cn(
-          "flex flex-1 flex-col transition-all duration-300 ease-in-out",
-          collapsed ? "ml-[72px]" : "ml-[240px]",
+          "flex flex-1 flex-col transition-all duration-300 ease-in-out ml-0",
+          collapsed ? "lg:ml-[72px]" : "lg:ml-[240px]",
         )}
       >
         <div className="flex h-screen flex-col p-2">
@@ -304,6 +324,12 @@ export default function DashboardLayout({
             {/* Top bar */}
             <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] bg-zinc-900/60 px-6 backdrop-blur-sm">
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsMobileOpen(true)}
+                  className="mr-2 rounded-lg p-1.5 text-zinc-500 hover:bg-white/[0.06] lg:hidden"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
                 <Zap className="h-3.5 w-3.5 text-violet-400" />
                 <span className="text-[13px] font-medium text-zinc-300">
                   {navItems.find((n) => pathname?.startsWith(n.href))?.label ??
