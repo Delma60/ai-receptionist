@@ -54,7 +54,7 @@ Built for:
 ## Features
 
 ### Phase 1 — MVP
-- [x] Multi-tenant auth & onboarding (Clerk)
+- [x] Multi-tenant auth & onboarding (Firebase Auth)
 - [x] AI agent builder (name, greeting, tone, FAQs)
 - [x] Phone number provisioning per tenant (Twilio)
 - [x] Voice AI call handling (Vapi)
@@ -85,7 +85,7 @@ Built for:
 |---|---|---|
 | **Framework** | Next.js 14 (App Router) | Full-stack React framework |
 | **UI** | Tailwind CSS + shadcn/ui | Styling and components |
-| **Auth** | Clerk | Multi-tenant authentication |
+| **Auth** | Firebase Auth | Multi-tenant authentication |
 | **Database** | Firebase Firestore | NoSQL real-time database |
 | **Storage** | Firebase Storage | Call recordings, assets |
 | **Functions** | Firebase Cloud Functions | Webhooks, background jobs |
@@ -276,7 +276,7 @@ Built for:
 
 ## Admin Panel
 
-The admin panel is a superuser-only area accessible at `/admin`. It is completely separate from the tenant-facing dashboard and is protected by a Clerk-based role check (`role === "admin"`) enforced in both middleware and individual API routes.
+The admin panel is a superuser-only area accessible at `/admin`. It is completely separate from the tenant-facing dashboard and is protected by a role check (`role === "admin"`) using Firebase Custom Claims.
 
 > ⚠️ Admin routes must **never** be accessible to regular tenants. All admin API routes verify the superuser role server-side before processing any request.
 

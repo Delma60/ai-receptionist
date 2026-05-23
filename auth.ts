@@ -1,41 +1,54 @@
-import { auth } from "@clerk/nextjs/server";
+import { adminAuth } from "@/lib/firebase-admin";
+import { headers, cookies } from "next/headers";
 
 /**
  * Server-side utility to check if the current user has the admin role.
- * Enforces the "Superuser" requirement mentioned in the project documentation.
  */
-export function isAdmin(): boolean {
-  const { sessionClaims } = auth();
-  return sessionClaims?.metadata?.role === "admin";
+export async function isAdmin(): Promise<boolean> {
+  const context = await getTenantContext();
+  return context?.role === "admin";
 }
 
 /**
  * Retrieves the tenant context for the current session.
- * Supports both Clerk Organizations and custom metadata tenant IDs.
  */
-export function getTenantContext() {
-  const { userId, orgId, sessionClaims } = auth();
+export async function getTenantContext() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
+  
+  const headersList = await headers();
+  const authorization = headersList.get("Authorization");
+  
+  // Prefer session cookie for UI navigation, fallback to Bearer token for API calls
+  const token = session || (authorization?.startsWith("Bearer ") ? authorization.split("Bearer ")[1] : null);
 
-  if (!userId) throw new Error("Unauthorized access: No session found.");
+  if (!token) return null;
 
-  return {
-    userId,
-    // Priority: Clerk Org ID -> Custom Metadata -> User ID as fallback
-    tenantId: orgId || (sessionClaims?.metadata?.tenantId as string) || userId,
-    role: sessionClaims?.metadata?.role as string || "user",
-  };
+  try {
+    let decodedToken;
+    if (session) {
+      // Use verifySessionCookie for cookie-based sessions
+      decodedToken = await adminAuth.verifySessionCookie(token, true);
+    } else {
+      // Use verifyIdToken for header-based Bearer tokens
+      decodedToken = await adminAuth.verifyIdToken(token);
+    }
+
+    return {
+      userId: decodedToken.uid,
+      tenantId: (decodedToken.tenantId as string) || decodedToken.uid,
+      role: (decodedToken.role as string) || "user",
+    };
+  } catch (error) {
+    console.error("Auth Error:", error);
+    return null;
+  }
 }
 
-/**
- * Type definition for Clerk JWT session claims.
- * Add this to a global d.ts file or keep it here for reference.
- */
 declare global {
-  interface CustomJwtSessionClaims {
-    metadata: {
-      role?: "admin" | "user" | "support";
-      tenantId?: string;
-    };
+  interface DecodedIdToken {
+    role?: UserRole;
+    tenantId?: string;
   }
 }
 

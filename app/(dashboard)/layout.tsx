@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Bot,
@@ -16,6 +16,8 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const navItems = [
   {
@@ -68,7 +70,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+
+  async function handleLogout() {
+    await signOut(auth);
+    await fetch("/api/auth/session", { method: "DELETE" });
+    router.push("/sign-in");
+  }
 
   return (
     <div className="flex min-h-screen bg-zinc-950 font-[family-name:var(--font-geist-sans)]">
@@ -219,7 +228,10 @@ export default function DashboardLayout({
               </div>
             )}
             {!collapsed && (
-              <button className="rounded-md p-1 text-zinc-600 hover:text-zinc-300 transition-colors">
+              <button
+                onClick={handleLogout}
+                className="rounded-md p-1 text-zinc-600 hover:text-zinc-300 transition-colors"
+              >
                 <LogOut className="h-3.5 w-3.5" />
               </button>
             )}

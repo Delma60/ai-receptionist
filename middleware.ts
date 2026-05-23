@@ -1,32 +1,30 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import type { NextRequest } from 'next/request';
 
-// Define matchers for route groups
-const isAdminRoute = createRouteMatcher(["/admin(.*)", "/api/admin(.*)"]);
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/webhooks(.*)", // Ensure Vapi, Twilio, and Stripe webhooks are public
-]);
+export default function middleware(req: NextRequest) {
+  const session = req.cookies.get("session")?.value;
+  const { pathname } = req.nextUrl;
 
-export default clerkMiddleware((auth, req) => {
-  // 1. Authorization: Admin Role Check
-  if (isAdminRoute(req)) {
-    const { sessionClaims } = auth();
-    // Check for the admin role in the Clerk JWT template metadata
-    if (sessionClaims?.metadata?.role !== "admin") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
+  // Paths that don't require authentication
+  const isPublicPath = 
+    pathname === "/" || 
+    pathname.startsWith("/sign-in") || 
+    pathname.startsWith("/sign-up") || 
+    pathname.startsWith("/api/webhooks");
+
+  // If not a public path and no session exists, redirect to sign-in
+  if (!isPublicPath && !session) {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 
-  // 2. Authentication: Protect non-public routes
-  if (!isPublicRoute(req)) {
-    auth().protect();
+  // Redirect logged-in users away from auth pages to the dashboard
+  if (session && (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up"))) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
-});
+
+  return NextResponse.next();
+}
 
 export const config = {
-  // Standard matcher for Next.js middleware to exclude static assets
   matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
 };

@@ -5,18 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/Button";
 import { useState } from "react";
-import { useSignIn } from "@clerk/nextjs";
+import { auth } from "@/lib/firebase";
+import { signInWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
-  const { isLoaded, signIn, setActive } = useSignIn();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
   async function handleSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!isLoaded) return;
 
     setError("");
     setLoading(true);
@@ -25,23 +24,59 @@ export default function SignInPage() {
     const password = (form.elements.namedItem("password") as HTMLInputElement)
       ?.value;
     try {
-      const result = await signIn.create({
-        identifier: email,
-        password,
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await userCredential.user.getIdToken();
+      
+      await fetch("/api/auth/session", {
+        method: "POST",
+        body: JSON.stringify({ idToken }),
+        headers: { "Content-Type": "application/json" },
       });
 
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
-        router.push("/dashboard");
-      } else {
-        setError("Additional verification steps required.");
-      }
+      router.push("/dashboard");
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || "Sign in failed");
+      setError(err.message || "Sign in failed");
     } finally {
       setLoading(false);
     }
   }
+
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const userCredential = await signInWithPopup(auth, provider);
+      const idToken = await userCredential.user.getIdToken();
+
+      await fetch("/api/auth/session", {
+        method: "POST",
+        body: JSON.stringify({ idToken }),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const signInWithGithub = async () => {
+    const provider = new GithubAuthProvider();
+    try {
+      const userCredential = await signInWithPopup(auth, provider);
+      const idToken = await userCredential.user.getIdToken();
+
+      await fetch("/api/auth/session", {
+        method: "POST",
+        body: JSON.stringify({ idToken }),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   return (
     <div className="grid min-h-screen w-full grid-cols-1 md:grid-cols-2">
       {/* Brand & Testimonial Section */}
