@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ImpersonateBanner } from "@/components/admin/ImpersonateBanner";
 import { signOut, onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where, limit } from "firebase/firestore";
@@ -85,6 +86,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [tenant, setTenant] = useState<any>(null);
   const [activeAgent, setActiveAgent] = useState<any>(null);
+  const [impersonatedId, setImpersonatedId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -94,23 +96,47 @@ export default function DashboardLayout({
   }, []);
 
   useEffect(() => {
-    if (!user) {
+    const cookieValue = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("impersonated_tenant_id="))
+      ?.split("=")[1];
+    
+    setImpersonatedId(cookieValue || null);
+  }, [pathname]);
+
+  useEffect(() => {
+    const effectiveId = impersonatedId || user?.uid;
+    
+    if (!effectiveId) {
       setTenant(null);
       setActiveAgent(null);
       return;
     }
 
-    const unsubTenant = onSnapshot(doc(db, "tenants", user.uid), (doc) => {
+    const unsubTenant = onSnapshot(doc(db, "tenants", effectiveId), (doc) => {
       setTenant(doc.data());
     });
 
-    const unsubAgent = onSnapshot(query(collection(db, "tenants", user.uid, "agents"), where("isActive", "==", true), limit(1)), (snapshot) => {
+    const unsubAgent = onSnapshot(query(collection(db, "tenants", effectiveId, "agents"), where("isActive", "==", true), limit(1)), (snapshot) => {
       if (!snapshot.empty) setActiveAgent(snapshot.docs[0].data());
       else setActiveAgent(null);
     });
 
     return () => { unsubTenant(); unsubAgent(); };
-  }, [user]);
+  }, [user, impersonatedId]);
+
+  async function handleExitImpersonation() {
+    try {
+      const res = await fetch("/api/admin/impersonate", { method: "DELETE" });
+      if (res.ok) {
+        setImpersonatedId(null);
+        router.refresh();
+        router.push("/admin/tenants");
+      }
+    } catch (err) {
+      console.error("Failed to exit impersonation", err);
+    }
+  }
 
   async function handleLogout() {
     await signOut(auth);
@@ -120,6 +146,12 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-zinc-950 font-[family-name:var(--font-geist-sans)]">
+      {impersonatedId && tenant && (
+        <div className="fixed top-0 left-0 right-0 z-[100]">
+          <ImpersonateBanner tenantName={tenant.name} onExit={handleExitImpersonation} />
+        </div>
+      )}
+
       {/* Mobile Backdrop */}
       {isMobileOpen && (
         <div
@@ -133,6 +165,7 @@ export default function DashboardLayout({
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-white/[0.06] bg-zinc-900/80 backdrop-blur-xl transition-all duration-300 ease-in-out lg:translate-x-0",
           collapsed ? "w-[72px]" : "w-[240px]",
+          impersonatedId && "pt-10",
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -316,6 +349,7 @@ export default function DashboardLayout({
       <div
         className={cn(
           "flex flex-1 flex-col transition-all duration-300 ease-in-out ml-0",
+          impersonatedId && "pt-10",
           collapsed ? "lg:ml-[72px]" : "lg:ml-[240px]",
         )}
       >

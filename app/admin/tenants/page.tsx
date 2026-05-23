@@ -16,6 +16,7 @@ import {
   Filter,
   ArrowUpRight,
   UserCheck,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
@@ -33,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/Button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Tenant {
   id: string;
@@ -64,9 +66,11 @@ const planConfig = {
 };
 
 export default function AdminTenantsPage() {
+  const router = useRouter();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [isImpersonating, setIsImpersonating] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, "tenants"), orderBy("createdAt", "desc"));
@@ -80,6 +84,24 @@ export default function AdminTenantsPage() {
     });
     return () => unsub();
   }, []);
+
+  const handleImpersonate = async (tenantId: string) => {
+    setIsImpersonating(tenantId);
+    try {
+      const res = await fetch("/api/admin/impersonate", {
+        method: "POST",
+        body: JSON.stringify({ tenantId }),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        router.push("/dashboard");
+      }
+    } catch (err) {
+      console.error("Failed to impersonate", err);
+    } finally {
+      setIsImpersonating(null);
+    }
+  };
 
   const filtered = tenants.filter(
     (t) =>
@@ -259,9 +281,11 @@ export default function AdminTenantsPage() {
                           size="icon-sm"
                           variant="ghost"
                           title="Impersonate"
+                          onClick={() => handleImpersonate(tenant.id)}
+                          disabled={!!isImpersonating}
                           className="h-8 w-8 text-zinc-500 hover:text-sky-400 hover:bg-sky-500/10"
                         >
-                          <UserCheck className="h-4 w-4" />
+                          {isImpersonating === tenant.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
                         </Button>
                         <Button
                           size="icon-sm"
