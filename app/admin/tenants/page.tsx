@@ -1,26 +1,282 @@
-import { Users } from "lucide-react";
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Users,
+  Search,
+  MoreHorizontal,
+  ExternalLink,
+  Mail,
+  Phone,
+  Calendar,
+  Shield,
+  Zap,
+  CreditCard,
+  ChevronRight,
+  Filter,
+  ArrowUpRight,
+  UserCheck,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/Button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import Link from "next/link";
+
+interface Tenant {
+  id: string;
+  name: string;
+  email: string;
+  plan: "starter" | "growth" | "pro";
+  phoneNumber?: string;
+  createdAt: any;
+  minutesUsed?: number;
+  minutesLimit?: number;
+}
+
+const planConfig = {
+  starter: {
+    label: "Starter",
+    variant: "outline" as const,
+    class: "border-zinc-500/20 text-zinc-400 bg-zinc-500/5",
+  },
+  growth: {
+    label: "Growth",
+    variant: "default" as const,
+    class: "border-emerald-500/20 text-emerald-400 bg-emerald-500/10",
+  },
+  pro: {
+    label: "Pro",
+    variant: "default" as const,
+    class: "border-violet-500/20 text-violet-400 bg-violet-500/10",
+  },
+};
 
 export default function AdminTenantsPage() {
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const q = query(collection(db, "tenants"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Tenant[];
+      setTenants(data);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const filtered = tenants.filter(
+    (t) =>
+      t.name?.toLowerCase().includes(search.toLowerCase()) ||
+      t.email?.toLowerCase().includes(search.toLowerCase()) ||
+      t.id.toLowerCase().includes(search.toLowerCase()),
+  );
+
   return (
     <div className="space-y-6">
+      {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-white">Tenants</h1>
           <p className="text-sm text-zinc-500">
-            Manage all registered business accounts and subscriptions.
+            Monitor and manage all registered business accounts and
+            subscriptions.
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            className="h-9 border-white/[0.06] bg-zinc-900/40 text-zinc-400"
+          >
+            <Filter className="mr-2 h-4 w-4" />
+            Filter
+          </Button>
+          <Button className="h-9 bg-emerald-600 hover:bg-emerald-500 text-white">
+            Export CSV
+          </Button>
         </div>
       </div>
 
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden">
-        <div className="py-24 flex flex-col items-center justify-center text-center">
-          <Users className="h-10 w-10 text-zinc-700 mb-4" />
-          <h3 className="text-lg font-medium text-zinc-400">
-            Tenant Directory
-          </h3>
-          <p className="text-sm text-zinc-600 mt-1">
-            Loading registered organizations...
-          </p>
+      {/* ── Stats Overview ── */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {[
+          {
+            label: "Total Tenants",
+            value: tenants.length,
+            icon: Users,
+            color: "text-emerald-400",
+          },
+          {
+            label: "Active Subscriptions",
+            value: tenants.filter((t) => t.plan !== "starter").length,
+            icon: CreditCard,
+            color: "text-violet-400",
+          },
+          {
+            label: "Growth Rate",
+            value: "+12%",
+            icon: ArrowUpRight,
+            color: "text-sky-400",
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-5"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-zinc-500">{stat.label}</p>
+              <stat.icon className={cn("h-4 w-4", stat.color)} />
+            </div>
+            <p className="mt-2 text-2xl font-bold text-white">{stat.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Directory ── */}
+      <div className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, email or ID..."
+            className="h-11 border-white/[0.06] bg-zinc-900/40 pl-10 text-sm ring-offset-zinc-950 focus:ring-emerald-500/20"
+          />
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden backdrop-blur-md">
+          {loading ? (
+            <div className="py-24 flex flex-col items-center justify-center text-center">
+              <Users className="h-10 w-10 text-zinc-700 animate-pulse mb-4" />
+              <p className="text-sm text-zinc-600">
+                Loading registered organizations...
+              </p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-24 flex flex-col items-center justify-center text-center">
+              <Users className="h-10 w-10 text-zinc-700 mb-4" />
+              <h3 className="text-lg font-medium text-zinc-400">
+                No tenants found
+              </h3>
+              <p className="text-sm text-zinc-600 mt-1">
+                Try adjusting your search criteria.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader className="bg-white/[0.02]">
+                <TableRow className="border-white/[0.06] hover:bg-transparent">
+                  <TableHead className="text-zinc-500 font-medium">
+                    Tenant
+                  </TableHead>
+                  <TableHead className="text-zinc-500 font-medium">
+                    Status & Plan
+                  </TableHead>
+                  <TableHead className="text-zinc-500 font-medium">
+                    Phone
+                  </TableHead>
+                  <TableHead className="text-zinc-500 font-medium">
+                    Joined
+                  </TableHead>
+                  <TableHead className="text-right text-zinc-500 font-medium">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((tenant) => (
+                  <TableRow
+                    key={tenant.id}
+                    className="border-white/[0.06] hover:bg-white/[0.02] transition-colors group"
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 rounded-lg border border-white/[0.06]">
+                          <AvatarFallback className="bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase rounded-lg">
+                            {tenant.name?.substring(0, 2) || "T"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-zinc-200">
+                            {tenant.name}
+                          </span>
+                          <span className="text-xs text-zinc-500">
+                            {tenant.email}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={cn(
+                          "rounded-md px-2 py-0.5 text-[10px] uppercase font-bold",
+                          planConfig[tenant.plan]?.class,
+                        )}
+                      >
+                        {planConfig[tenant.plan]?.label || tenant.plan}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-mono text-zinc-400">
+                        {tenant.phoneNumber || "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-zinc-500">
+                        {tenant.createdAt?.toDate
+                          ? tenant.createdAt.toDate().toLocaleDateString()
+                          : "Recent"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Link href={`/admin/tenants/${tenant.id}`}>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            className="h-8 w-8 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          title="Impersonate"
+                          className="h-8 w-8 text-zinc-500 hover:text-sky-400 hover:bg-sky-500/10"
+                        >
+                          <UserCheck className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="h-8 w-8 text-zinc-500 hover:text-white"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </div>
     </div>
