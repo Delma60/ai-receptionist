@@ -58,12 +58,13 @@ function PopoverMenu({ tenantId }: { tenantId: string }) {
   return (
     <Popover>
       <PopoverTrigger>
-        <button
-          type="button"
-          className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-500 hover:text-white bg-transparent border-none p-0"
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="h-8 w-8 text-zinc-500 hover:text-white"
         >
           <MoreHorizontal className="h-4 w-4" />
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent
         align="end"
@@ -225,8 +226,8 @@ export default function AdminTenantsPage() {
               </p>
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <Table className="min-w-[700px] md:min-w-full">
+            <div className="w-full">
+              <Table>
                 <TableHeader className="bg-white/[0.02]">
                   <TableRow className="border-white/[0.06] hover:bg-transparent">
                     <TableHead className="text-zinc-500 font-medium">
@@ -235,10 +236,12 @@ export default function AdminTenantsPage() {
                     <TableHead className="text-zinc-500 font-medium">
                       Status & Plan
                     </TableHead>
-                    <TableHead className="text-zinc-500 font-medium">
+                    {/* Hide on small screens */}
+                    <TableHead className="hidden md:table-cell text-zinc-500 font-medium">
                       Phone
                     </TableHead>
-                    <TableHead className="text-zinc-500 font-medium">
+                    {/* Hide on small/medium screens */}
+                    <TableHead className="hidden lg:table-cell text-zinc-500 font-medium">
                       Joined
                     </TableHead>
                     <TableHead className="text-right text-zinc-500 font-medium">
@@ -252,18 +255,19 @@ export default function AdminTenantsPage() {
                       key={tenant.id}
                       className="border-white/[0.06] hover:bg-white/[0.02] transition-colors group"
                     >
-                      <TableCell>
+                      {/* Truncate long names/emails on mobile */}
+                      <TableCell className="max-w-[150px] sm:max-w-xs">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9 rounded-lg border border-white/[0.06]">
+                          <Avatar className="h-9 w-9 shrink-0 rounded-lg border border-white/[0.06]">
                             <AvatarFallback className="bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase rounded-lg">
                               {tenant.name?.substring(0, 2) || "T"}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-zinc-200">
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-medium text-zinc-200 truncate">
                               {tenant.name}
                             </span>
-                            <span className="text-xs text-zinc-500">
+                            <span className="text-xs text-zinc-500 truncate">
                               {tenant.email}
                             </span>
                           </div>
@@ -279,20 +283,26 @@ export default function AdminTenantsPage() {
                           {planConfig[tenant.plan]?.label || tenant.plan}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+
+                      {/* Hide on small screens */}
+                      <TableCell className="hidden md:table-cell">
                         <span className="text-sm font-mono text-zinc-400">
                           {tenant.phoneNumber || "—"}
                         </span>
                       </TableCell>
-                      <TableCell>
+
+                      {/* Hide on small/medium screens */}
+                      <TableCell className="hidden lg:table-cell">
                         <span className="text-sm text-zinc-500">
                           {tenant.createdAt?.toDate
                             ? tenant.createdAt.toDate().toLocaleDateString()
                             : "Recent"}
                         </span>
                       </TableCell>
+
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Always show actions on mobile (lg:opacity-0), hover on desktop */}
+                        <div className="flex items-center justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
                           <Link href={`/admin/tenants/${tenant.id}`}>
                             <Button
                               size="icon-sm"
@@ -302,21 +312,17 @@ export default function AdminTenantsPage() {
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </Link>
+
                           <ImpersonateButton
                             tenantId={tenant.id}
                             tenantName={tenant.name}
                             variant="ghost"
-                            size="sm"
+                            size="icon-sm"
+                            className="h-8 w-8 text-zinc-500 hover:text-sky-400 hover:bg-sky-500/10"
                           >
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              className="h-8 w-8 text-zinc-500 hover:text-sky-400 hover:bg-sky-500/10"
-                            >
-                              <UserCheck className="h-4 w-4" />
-                            </Button>
+                            <UserCheck className="h-4 w-4" />
                           </ImpersonateButton>
-                          {/* Popover for More actions */}
+
                           <div className="relative">
                             <PopoverMenu tenantId={tenant.id} />
                           </div>

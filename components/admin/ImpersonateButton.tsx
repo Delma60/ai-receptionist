@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/Button"; 
+import { Button } from "@/components/ui/Button";
 import { UserPlus, Loader2 } from "lucide-react";
 
 interface ImpersonateButtonProps {
@@ -15,7 +15,8 @@ interface ImpersonateButtonProps {
     | "secondary"
     | "ghost"
     | "link";
-  size?: "default" | "sm" | "lg" | "icon";
+  size?: "default" | "sm" | "lg" | "icon" | "icon-sm"; // Added "icon-sm"
+  className?: string; // Added className prop
   children?: React.ReactNode;
 }
 
@@ -25,6 +26,7 @@ export function ImpersonateButton({
   children,
   variant = "outline",
   size = "sm",
+  className,
 }: ImpersonateButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -44,14 +46,10 @@ export function ImpersonateButton({
         throw new Error(data.error || "Failed to impersonate");
       }
 
-      // 1. Refresh the current route so server components read the new cookie
       router.refresh();
-
-      // 2. Redirect the admin to the standard dashboard to view it as the tenant
       router.push("/dashboard");
     } catch (error) {
       console.error(error);
-      // Tip: If you use Sonner or react-hot-toast, replace this alert with a toast.error()
       alert(
         error instanceof Error
           ? error.message
@@ -65,20 +63,29 @@ export function ImpersonateButton({
   return (
     <Button
       variant={variant}
-      size={size}
+      size={size as any} // Prevents strict type complaints from underlying UI Button
+      className={className}
       onClick={handleImpersonate}
       disabled={isLoading}
       title={tenantName ? `Impersonate ${tenantName}` : "Impersonate Tenant"}
     >
-      {/* 1. Render Spinner if loading, otherwise render Icon (ONLY if no custom children are provided) */}
-      {isLoading ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      {/* If children (like an icon) are passed, render them or a spinner. Otherwise render default text/icon */}
+      {children ? (
+        isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          children
+        )
       ) : (
-        !children && <UserPlus className="mr-2 h-4 w-4" />
+        <>
+          {isLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <UserPlus className="mr-2 h-4 w-4" />
+          )}
+          {isLoading ? "Switching..." : "Impersonate"}
+        </>
       )}
-      
-      {/* 2. Render Text: Loading state, OR Custom Children, OR Default Text */}
-      {isLoading ? "Switching..." : (children || "Impersonate")}
     </Button>
   );
 }
