@@ -36,6 +36,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ImpersonateButton } from "@/components/admin/ImpersonateButton";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface Tenant {
   id: string;
@@ -46,6 +51,43 @@ interface Tenant {
   createdAt: any;
   minutesUsed?: number;
   minutesLimit?: number;
+}
+
+// PopoverMenu component for More actions
+function PopoverMenu({ tenantId }: { tenantId: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger>
+        <button
+          type="button"
+          className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-500 hover:text-white bg-transparent border-none p-0"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-40 p-2 bg-zinc-900 border-white/[0.08]"
+      >
+        <div className="flex flex-col gap-1">
+          <Link href={`/admin/tenants/${tenantId}/edit`}>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-zinc-400 hover:text-emerald-400"
+            >
+              Edit Tenant
+            </Button>
+          </Link>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-zinc-400 hover:text-red-500"
+          >
+            Delete Tenant
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 const planConfig = {
@@ -183,109 +225,108 @@ export default function AdminTenantsPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader className="bg-white/[0.02]">
-                <TableRow className="border-white/[0.06] hover:bg-transparent">
-                  <TableHead className="text-zinc-500 font-medium">
-                    Tenant
-                  </TableHead>
-                  <TableHead className="text-zinc-500 font-medium">
-                    Status & Plan
-                  </TableHead>
-                  <TableHead className="text-zinc-500 font-medium">
-                    Phone
-                  </TableHead>
-                  <TableHead className="text-zinc-500 font-medium">
-                    Joined
-                  </TableHead>
-                  <TableHead className="text-right text-zinc-500 font-medium">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((tenant) => (
-                  <TableRow
-                    key={tenant.id}
-                    className="border-white/[0.06] hover:bg-white/[0.02] transition-colors group"
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 rounded-lg border border-white/[0.06]">
-                          <AvatarFallback className="bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase rounded-lg">
-                            {tenant.name?.substring(0, 2) || "T"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-zinc-200">
-                            {tenant.name}
-                          </span>
-                          <span className="text-xs text-zinc-500">
-                            {tenant.email}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={cn(
-                          "rounded-md px-2 py-0.5 text-[10px] uppercase font-bold",
-                          planConfig[tenant.plan]?.class,
-                        )}
-                      >
-                        {planConfig[tenant.plan]?.label || tenant.plan}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm font-mono text-zinc-400">
-                        {tenant.phoneNumber || "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-zinc-500">
-                        {tenant.createdAt?.toDate
-                          ? tenant.createdAt.toDate().toLocaleDateString()
-                          : "Recent"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Link href={`/admin/tenants/${tenant.id}`}>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            className="h-8 w-8 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <ImpersonateButton
-                          tenantId={tenant.id}
-                          tenantName={tenant.name}
-                          variant="ghost"
-                          size="sm"
-                        >
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            className="h-8 w-8 text-zinc-500 hover:text-sky-400 hover:bg-sky-500/10"
-                          >
-                            <UserCheck className="h-4 w-4" />
-                          </Button>
-                        </ImpersonateButton>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          className="h-8 w-8 text-zinc-500 hover:text-white"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="w-full overflow-x-auto">
+              <Table className="min-w-[700px] md:min-w-full">
+                <TableHeader className="bg-white/[0.02]">
+                  <TableRow className="border-white/[0.06] hover:bg-transparent">
+                    <TableHead className="text-zinc-500 font-medium">
+                      Tenant
+                    </TableHead>
+                    <TableHead className="text-zinc-500 font-medium">
+                      Status & Plan
+                    </TableHead>
+                    <TableHead className="text-zinc-500 font-medium">
+                      Phone
+                    </TableHead>
+                    <TableHead className="text-zinc-500 font-medium">
+                      Joined
+                    </TableHead>
+                    <TableHead className="text-right text-zinc-500 font-medium">
+                      Actions
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((tenant) => (
+                    <TableRow
+                      key={tenant.id}
+                      className="border-white/[0.06] hover:bg-white/[0.02] transition-colors group"
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9 rounded-lg border border-white/[0.06]">
+                            <AvatarFallback className="bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase rounded-lg">
+                              {tenant.name?.substring(0, 2) || "T"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-zinc-200">
+                              {tenant.name}
+                            </span>
+                            <span className="text-xs text-zinc-500">
+                              {tenant.email}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={cn(
+                            "rounded-md px-2 py-0.5 text-[10px] uppercase font-bold",
+                            planConfig[tenant.plan]?.class,
+                          )}
+                        >
+                          {planConfig[tenant.plan]?.label || tenant.plan}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm font-mono text-zinc-400">
+                          {tenant.phoneNumber || "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-zinc-500">
+                          {tenant.createdAt?.toDate
+                            ? tenant.createdAt.toDate().toLocaleDateString()
+                            : "Recent"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Link href={`/admin/tenants/${tenant.id}`}>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              className="h-8 w-8 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <ImpersonateButton
+                            tenantId={tenant.id}
+                            tenantName={tenant.name}
+                            variant="ghost"
+                            size="sm"
+                          >
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              className="h-8 w-8 text-zinc-500 hover:text-sky-400 hover:bg-sky-500/10"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </Button>
+                          </ImpersonateButton>
+                          {/* Popover for More actions */}
+                          <div className="relative">
+                            <PopoverMenu tenantId={tenant.id} />
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
       </div>
