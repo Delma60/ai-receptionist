@@ -65,7 +65,7 @@ export type IntegrationService =
   | "gohighlevel"
   | "calendly";
 
-export interface Integration {
+export interface IntegrationUser extends Integration {
   id: string;
   tenantId: string;
   service: IntegrationService;
@@ -133,3 +133,26 @@ export const PLAN_LIMITS: Record<
 };
 
 export const OVERAGE_RATE_PER_MIN = 0.08;
+
+
+export type IntegrationStatus = "connected" | "disconnected" | "error" | "syncing";
+export type IntegrationCategory = "calendar" | "crm" | "sms" | "phone" | "analytics" | "webhook" | "communication" | "marketing" | "storage" | "support" | "custom";
+export interface Integration {
+  id: string;
+  name: string;
+  description: string;
+  category: IntegrationCategory;
+  status: IntegrationStatus;
+  iconName: string;
+  iconColor: string;
+  iconBg: string;
+  connectedAccount?: string;
+  lastSync?: string;
+  features: string[];
+  popular?: boolean;
+  comingSoon?: boolean;
+  publishedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  published: boolean;
+}

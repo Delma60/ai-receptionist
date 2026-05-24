@@ -18,6 +18,8 @@ import {
   Mail,
   Building2,
   Phone,
+  Webhook,
+  Code,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -32,7 +34,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/textarea";
 import { auth, db } from "@/lib/firebase";
-import { doc, onSnapshot, updateDoc, collection, query, orderBy, limit } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  collection,
+  query,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
@@ -53,10 +63,14 @@ export default function SettingsPage() {
     });
 
     const unsubInvoices = onSnapshot(
-      query(collection(db, "tenants", user.uid, "invoices"), orderBy("createdAt", "desc"), limit(5)),
+      query(
+        collection(db, "tenants", user.uid, "invoices"),
+        orderBy("createdAt", "desc"),
+        limit(5),
+      ),
       (snapshot) => {
-        setInvoices(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      }
+        setInvoices(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
     );
 
     return () => {
@@ -319,7 +333,8 @@ export default function SettingsPage() {
                         </div>
                         <div>
                           <p className="text-[13px] font-medium text-white">
-                            {tenant.paymentMethod?.brand || "VISA"} •••• {tenant.paymentMethod?.last4 || "4242"}
+                            {tenant.paymentMethod?.brand || "VISA"} ••••{" "}
+                            {tenant.paymentMethod?.last4 || "4242"}
                           </p>
                           <p className="text-[11px] text-zinc-600">
                             Expires {tenant.paymentMethod?.expiry || "12/28"}
@@ -346,24 +361,34 @@ export default function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                {invoices.length > 0 ? invoices.map((inv) => (
-                  <div
-                    key={inv.id}
-                    className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors group cursor-pointer"
-                  >
-                    <div>
-                      <p className="text-[13px] font-medium text-zinc-200">
-                        {inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : inv.date || "Recent"}
-                      </p>
-                      <p className="text-[11px] text-zinc-600">#{inv.invoiceNumber || inv.id.slice(0, 8)}</p>
+                {invoices.length > 0 ? (
+                  invoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                    >
+                      <div>
+                        <p className="text-[13px] font-medium text-zinc-200">
+                          {inv.createdAt?.toDate
+                            ? inv.createdAt.toDate().toLocaleDateString()
+                            : inv.date || "Recent"}
+                        </p>
+                        <p className="text-[11px] text-zinc-600">
+                          #{inv.invoiceNumber || inv.id.slice(0, 8)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[12px] font-medium text-zinc-400">
+                          ${inv.amount}
+                        </span>
+                        <ExternalLink className="h-3.5 w-3.5 text-zinc-700 group-hover:text-zinc-400 transition-colors" />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[12px] font-medium text-zinc-400">${inv.amount}</span>
-                      <ExternalLink className="h-3.5 w-3.5 text-zinc-700 group-hover:text-zinc-400 transition-colors" />
-                    </div>
-                  </div>
-                )) : (
-                  <p className="text-center py-8 text-zinc-600 text-sm">No invoices found.</p>
+                  ))
+                ) : (
+                  <p className="text-center py-8 text-zinc-600 text-sm">
+                    No invoices found.
+                  </p>
                 )}
                 <div className="p-4 text-center">
                   <button className="text-[11px] text-violet-400 hover:underline">
@@ -375,47 +400,17 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* ── Integrations Settings ─────────────────────── */}
+        {/* ── Custom Integrations Settings ─────────────────────── */}
         <TabsContent value="integrations" className="mt-8 space-y-6">
           <Card className="border-white/[0.06] bg-zinc-900/80">
             <CardHeader>
-              <CardTitle className="text-lg">Connected Services</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Code className="h-5 w-5 text-violet-400" />
+                Developer API
+              </CardTitle>
               <CardDescription>
-                Connect your tools to sync availability and lead data.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <IntegrationCard
-                  name="Google Calendar"
-                  description="Sync booking availability"
-                  icon={Globe}
-                  connected={tenant.integrations?.googleCalendar?.connected || false}
-                  color="bg-blue-500"
-                />
-                <IntegrationCard
-                  name="HubSpot"
-                  description="Sync contacts and calls"
-                  icon={Database}
-                  connected={tenant.integrations?.hubspot?.connected || false}
-                  color="bg-orange-500"
-                />
-                <IntegrationCard
-                  name="GoHighLevel"
-                  description="CRM and Lead management"
-                  icon={Zap}
-                  connected={tenant.integrations?.gohighlevel?.connected || false}
-                  color="bg-blue-600"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-white/[0.06] bg-zinc-900/80">
-            <CardHeader>
-              <CardTitle className="text-lg">Developer API</CardTitle>
-              <CardDescription>
-                Use your API keys to build custom integrations.
+                Use your API keys to build custom integrations with your own
+                platform.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -435,6 +430,46 @@ export default function SettingsPage() {
                     className="border-white/[0.06] bg-zinc-900"
                   >
                     Reveal
+                  </Button>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-2">
+                  Keep this key secure. Never expose it in client-side code.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-white/[0.06] bg-zinc-900/80">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Webhook className="h-5 w-5 text-emerald-400" />
+                Webhooks
+              </CardTitle>
+              <CardDescription>
+                Listen to events (like completed calls or new bookings) to
+                trigger workflows in external tools.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-zinc-400">
+                  Global Webhook URL
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="https://your-server.com/webhook"
+                    value={tenant.webhookUrl || ""}
+                    onChange={(e) =>
+                      setTenant({ ...tenant, webhookUrl: e.target.value })
+                    }
+                    className="bg-white/[0.03] border-white/[0.08] text-[13px]"
+                  />
+                  <Button
+                    variant="outline"
+                    className="border-white/[0.06] bg-zinc-900 text-zinc-300"
+                  >
+                    Test
                   </Button>
                 </div>
               </div>

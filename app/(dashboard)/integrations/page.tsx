@@ -21,25 +21,10 @@ import {
 import { cn } from "@/lib/utils";
 import { db, auth } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc, collection } from "firebase/firestore";
+import { Integration, IntegrationStatus } from "@/types";
+import { DynamicIcon } from "lucide-react/dynamic";
 
 // ── Types ────────────────────────────────────────────────────────────
-type IntegrationStatus = "connected" | "disconnected" | "error" | "syncing";
-
-interface Integration {
-  id: string;
-  name: string;
-  description: string;
-  category: "calendar" | "crm" | "sms" | "phone" | "analytics" | "webhook";
-  status: IntegrationStatus;
-  icon: React.ElementType;
-  iconColor: string;
-  iconBg: string;
-  connectedAccount?: string;
-  lastSync?: string;
-  features: string[];
-  popular?: boolean;
-  comingSoon?: boolean;
-}
 
 const iconMap: Record<string, React.ElementType> = {
   calendar: Calendar,
@@ -85,6 +70,11 @@ const categoryLabels: Record<Integration["category"], string> = {
   phone: "Phone",
   analytics: "Analytics",
   webhook: "Webhooks",
+  communication: "Communication",
+  marketing: "Marketing",
+  storage: "Storage",
+  support: "Support",
+  custom: "Custom",
 };
 
 // ── Sub-components ────────────────────────────────────────────────────
@@ -94,7 +84,7 @@ function StatusBadge({ status }: { status: IntegrationStatus }) {
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
-        cfg.badge
+        cfg.badge,
       )}
     >
       <span className="relative flex h-1.5 w-1.5">
@@ -102,11 +92,16 @@ function StatusBadge({ status }: { status: IntegrationStatus }) {
           <span
             className={cn(
               "absolute inline-flex h-full w-full animate-ping rounded-full opacity-75",
-              cfg.dot
+              cfg.dot,
             )}
           />
         )}
-        <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", cfg.dot)} />
+        <span
+          className={cn(
+            "relative inline-flex h-1.5 w-1.5 rounded-full",
+            cfg.dot,
+          )}
+        />
       </span>
       {cfg.label}
     </span>
@@ -124,7 +119,7 @@ function IntegrationCard({
   onDisconnect: (id: string) => void;
   onSync: (id: string) => void;
 }) {
-  const Icon = integration.icon;
+  // const Icon = integration.icon;
   const isConnected = integration.status === "connected";
   const isError = integration.status === "error";
   const isSyncing = integration.status === "syncing";
@@ -136,9 +131,9 @@ function IntegrationCard({
         isConnected
           ? "border-white/[0.08] hover:border-white/[0.12]"
           : isError
-          ? "border-red-500/20 hover:border-red-500/30"
-          : "border-white/[0.06] hover:border-white/[0.1]",
-        integration.comingSoon && "opacity-60"
+            ? "border-red-500/20 hover:border-red-500/30"
+            : "border-white/[0.06] hover:border-white/[0.1]",
+        integration.comingSoon && "opacity-60",
       )}
     >
       {/* Popular badge */}
@@ -160,10 +155,12 @@ function IntegrationCard({
         <div
           className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border",
-            integration.iconBg
+            integration.iconBg,
           )}
         >
-          <Icon className={cn("h-5 w-5", integration.iconColor)} />
+          {/* Check point */}
+          {integration.icon}
+          {/* <Icon className={cn("h-5 w-5", integration.iconColor)} /> */}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -187,12 +184,14 @@ function IntegrationCard({
 
       {/* Connected account info */}
       {(isConnected || isError) && integration.connectedAccount && (
-        <div className={cn(
-          "rounded-lg border px-3 py-2.5",
-          isError
-            ? "border-red-500/20 bg-red-500/5"
-            : "border-white/[0.06] bg-white/[0.02]"
-        )}>
+        <div
+          className={cn(
+            "rounded-lg border px-3 py-2.5",
+            isError
+              ? "border-red-500/20 bg-red-500/5"
+              : "border-white/[0.06] bg-white/[0.02]",
+          )}
+        >
           {isError && (
             <div className="mb-1.5 flex items-center gap-1.5">
               <AlertCircle className="h-3.5 w-3.5 text-red-400" />
@@ -211,10 +210,12 @@ function IntegrationCard({
             {integration.lastSync && (
               <div className="text-right">
                 <p className="text-[11px] text-zinc-600">Last sync</p>
-                <p className={cn(
-                  "mt-0.5 text-[12px] font-medium",
-                  isError ? "text-red-400" : "text-zinc-400"
-                )}>
+                <p
+                  className={cn(
+                    "mt-0.5 text-[12px] font-medium",
+                    isError ? "text-red-400" : "text-zinc-400",
+                  )}
+                >
                   {integration.lastSync}
                 </p>
               </div>
@@ -258,9 +259,7 @@ function IntegrationCard({
               )}
               Sync now
             </button>
-            <button
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
-            >
+            <button className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200">
               <Settings className="h-3.5 w-3.5" />
             </button>
             <button
@@ -297,12 +296,12 @@ function ConnectModal({
   onClose,
   onConfirm,
 }: {
-  integration: Integration;
+  integration: Integration & { icon: React.ReactNode };
   onClose: () => void;
   onConfirm: () => void;
 }) {
   const [step, setStep] = useState<"idle" | "connecting" | "done">("idle");
-  const Icon = integration.icon;
+  // const Icon = integration.iconName;
 
   const handleConnect = () => {
     setStep("connecting");
@@ -344,10 +343,11 @@ function ConnectModal({
               <div
                 className={cn(
                   "flex h-10 w-10 items-center justify-center rounded-lg border",
-                  integration.iconBg
+                  integration.iconBg,
                 )}
               >
-                <Icon className={cn("h-5 w-5", integration.iconColor)} />
+                {/* TODO: checkpoint */}
+                {integration.icon}
               </div>
               <div>
                 <h3 className="text-[15px] font-semibold text-white">
@@ -425,11 +425,18 @@ export default function IntegrationsPage() {
       }
     });
 
-    const unsubAvailable = onSnapshot(collection(db, "available_integrations"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAvailableIntegrations(data);
-      setLoading(false);
-    });
+    const unsubAvailable = onSnapshot(
+      collection(db, "available_integrations"),
+      (snapshot) => {
+        // Filter out items that the admin has not published
+        const data = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((item: any) => item.published === true); // <--- Add this filter
+
+        setAvailableIntegrations(data);
+        setLoading(false);
+      },
+    );
 
     return () => {
       unsub();
@@ -439,13 +446,23 @@ export default function IntegrationsPage() {
 
   // Derive items by merging static metadata with live Firestore status
   const items: Integration[] = availableIntegrations.map((item) => {
-    const firestoreKey = item.id.replace(/-([a-z])/g, (g: any) => g[1].toUpperCase());
+    const firestoreKey = item.id.replace(/-([a-z])/g, (g: any) =>
+      g[1].toUpperCase(),
+    );
     const dynamic = tenant?.integrations?.[firestoreKey];
-    
+
     return {
       ...item,
-      icon: iconMap[item.iconName] || Globe,
-      status: dynamic ? ((dynamic.status as IntegrationStatus) || (dynamic.connected ? "connected" : "disconnected")) : "disconnected",
+      icon: (
+        <DynamicIcon
+          name={item.iconName}
+          className={cn("h-5 w-5", item.iconColor)}
+        />
+      ),
+      status: dynamic
+        ? (dynamic.status as IntegrationStatus) ||
+          (dynamic.connected ? "connected" : "disconnected")
+        : "disconnected",
       connectedAccount: dynamic?.connectedAccount || dynamic?.account,
       lastSync: dynamic?.lastSync,
     } as Integration;
@@ -454,11 +471,19 @@ export default function IntegrationsPage() {
   const connectedCount = items.filter((i) => i.status === "connected").length;
   const errorCount = items.filter((i) => i.status === "error").length;
 
-  const categories = ["all", "calendar", "crm", "sms", "webhook"];
+  const _categories = items.reduce((acc, item) => {
+    if (!acc.includes(item.category)) {
+      acc.push(item.category);
+    }
+    return acc;
+  }, [] as string[]);
 
-  const filtered = activeFilter === "all"
-    ? items
-    : items.filter((i) => i.category === activeFilter);
+  const categories = ["all", ..._categories];
+
+  const filtered =
+    activeFilter === "all"
+      ? items
+      : items.filter((i) => i.category === activeFilter);
 
   const handleConnect = (id: string) => {
     const integration = items.find((i) => i.id === id);
@@ -467,37 +492,42 @@ export default function IntegrationsPage() {
 
   const handleConnectConfirm = async () => {
     if (!connecting || !user) return;
-    
-    const firestoreKey = connecting.id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+
+    const firestoreKey = connecting.id.replace(/-([a-z])/g, (g) =>
+      g[1].toUpperCase(),
+    );
     const path = `integrations.${firestoreKey}`;
     await updateDoc(doc(db, "tenants", user.uid), {
       [path]: {
         connected: true,
         status: "connected",
-        connectedAccount: connecting.id === 'twilio-sms' ? "+1 (415) 800-2200" : "Connected account",
+        connectedAccount:
+          connecting.id === "twilio-sms"
+            ? "+1 (415) 800-2200"
+            : "Connected account",
         lastSync: "Just now",
-      }
+      },
     });
-    
+
     setConnecting(null);
   };
 
   const handleDisconnect = async (id: string) => {
     if (!user) return;
-    
+
     const firestoreKey = id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
     const path = `integrations.${firestoreKey}`;
     await updateDoc(doc(db, "tenants", user.uid), {
       [path]: {
         connected: false,
         status: "disconnected",
-      }
+      },
     });
   };
 
   const handleSync = async (id: string) => {
     if (!user) return;
-    
+
     const firestoreKey = id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
     await updateDoc(doc(db, "tenants", user.uid), {
       [`integrations.${firestoreKey}.status`]: "syncing",
@@ -554,7 +584,9 @@ export default function IntegrationsPage() {
           },
           {
             label: "Available",
-            value: items.filter((i) => i.status === "disconnected" && !i.comingSoon).length,
+            value: items.filter(
+              (i) => i.status === "disconnected" && !i.comingSoon,
+            ).length,
             color: "text-zinc-300",
             dot: "bg-zinc-500",
           },
@@ -573,7 +605,9 @@ export default function IntegrationsPage() {
               <span className={cn("h-2 w-2 rounded-full", dot)} />
               <span className="text-[13px] text-zinc-500">{label}</span>
             </div>
-            <span className={cn("text-[18px] font-semibold tabular-nums", color)}>
+            <span
+              className={cn("text-[18px] font-semibold tabular-nums", color)}
+            >
               {value}
             </span>
           </div>
@@ -586,10 +620,12 @@ export default function IntegrationsPage() {
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
           <div>
             <p className="text-[13px] font-medium text-red-400">
-              {errorCount} integration{errorCount > 1 ? "s need" : " needs"} attention
+              {errorCount} integration{errorCount > 1 ? "s need" : " needs"}{" "}
+              attention
             </p>
             <p className="mt-0.5 text-[12px] text-red-400/70">
-              Reconnect your expired integrations to resume syncing and avoid missed appointments.
+              Reconnect your expired integrations to resume syncing and avoid
+              missed appointments.
             </p>
           </div>
         </div>
@@ -605,10 +641,12 @@ export default function IntegrationsPage() {
               "rounded-lg border px-3 py-1.5 text-[12px] font-medium capitalize transition",
               activeFilter === cat
                 ? "border-violet-500/40 bg-violet-500/10 text-violet-400"
-                : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.1] hover:text-zinc-300"
+                : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.1] hover:text-zinc-300",
             )}
           >
-            {cat === "all" ? "All integrations" : categoryLabels[cat as Integration["category"]]}
+            {cat === "all"
+              ? "All integrations"
+              : categoryLabels[cat as Integration["category"]]}
           </button>
         ))}
       </div>

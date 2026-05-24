@@ -4,6 +4,8 @@ import "./globals.css";
 
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/context/ThemeContext";
+// sonner
+import { Toaster as ToastProvider,  } from "sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -38,7 +40,10 @@ export default function RootLayout({
           inter.variable,
         )}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <ToastProvider richColors position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );
