@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/auth"; 
+import { isAdmin } from "@/app/server/auth-helpers"; 
 
 export async function POST(req: Request) {
   try {

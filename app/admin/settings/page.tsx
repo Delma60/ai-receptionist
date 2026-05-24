@@ -34,7 +34,6 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { logAdminAction } from "@/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -56,7 +55,7 @@ interface PlatformConfig {
   supportEmail: string;
   maxAgentsPerTenant?: number;
   webhookRetryAttempts?: number;
-  paymentProvider: 'stripe' | 'flutterwave';
+  paymentProvider: "stripe" | "flutterwave";
   allowGoogleAuth: boolean;
   allowGithubAuth: boolean;
   updatedAt?: any;
@@ -381,7 +380,7 @@ export default function AdminSettingsPage() {
             supportEmail: "support@receptionly.ai",
             maxAgentsPerTenant: 10,
             webhookRetryAttempts: 3,
-            paymentProvider: 'stripe',
+            paymentProvider: "stripe",
             allowGoogleAuth: true,
             allowGithubAuth: true,
           };
@@ -402,19 +401,29 @@ export default function AdminSettingsPage() {
     };
   }, []);
 
-  const handleToggleFlag = async (id: string, name: string, current: boolean) => {
+  const handleToggleFlag = async (
+    id: string,
+    name: string,
+    current: boolean,
+  ) => {
     try {
       await updateDoc(doc(db, "featureFlags", id), {
         enabled: !current,
         updatedAt: serverTimestamp(),
       });
 
-      // Gap #13: Audit the action
-      const res = await fetch('/api/auth/session');
-      const admin = await res.json();
-      await logAdminAction(admin.userId, "feature_flag", "global", {
-        flagName: name,
-        newState: !current
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
+
+      await fetch("/api/admin/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminId: session.userId ?? "unknown",
+          action: "feature_flag",
+          targetTenantId: "global",
+          metadata: { flagName: name, newState: !current },
+        }),
       });
     } catch (err) {
       console.error(err);
@@ -458,10 +467,14 @@ export default function AdminSettingsPage() {
     if (!config) return;
     setSaving(true);
     try {
-      await setDoc(doc(db, "platform", "config"), {
-        ...config,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      await setDoc(
+        doc(db, "platform", "config"),
+        {
+          ...config,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);
     } catch (err) {
@@ -814,40 +827,62 @@ export default function AdminSettingsPage() {
                   </label>
                   <select
                     value={config.paymentProvider}
-                    onChange={(e) => setConfig({ ...config, paymentProvider: e.target.value as any })}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        paymentProvider: e.target.value as any,
+                      })
+                    }
                     className="w-full rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[13px] text-white focus:border-violet-500 outline-none h-9"
                   >
                     <option value="stripe">Stripe (Global)</option>
-                    <option value="flutterwave">Flutterwave (Africa/Nigeria)</option>
+                    <option value="flutterwave">
+                      Flutterwave (Africa/Nigeria)
+                    </option>
                   </select>
                   <p className="text-[10px] text-zinc-600">
-                    Flutterwave is recommended for regions where Stripe has limited support.
+                    Flutterwave is recommended for regions where Stripe has
+                    limited support.
                   </p>
                 </div>
               </div>
 
               <div className="space-y-4 pt-4 border-t border-white/[0.04]">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Authentication Methods</p>
-                
+                <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+                  Authentication Methods
+                </p>
+
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[13px] font-medium text-zinc-200">Allow Google Authentication</p>
-                    <p className="text-[11px] text-zinc-600">Enable users to sign up and sign in with Google.</p>
+                    <p className="text-[13px] font-medium text-zinc-200">
+                      Allow Google Authentication
+                    </p>
+                    <p className="text-[11px] text-zinc-600">
+                      Enable users to sign up and sign in with Google.
+                    </p>
                   </div>
                   <Switch
                     checked={config.allowGoogleAuth}
-                    onCheckedChange={(v) => setConfig({ ...config, allowGoogleAuth: v })}
+                    onCheckedChange={(v) =>
+                      setConfig({ ...config, allowGoogleAuth: v })
+                    }
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[13px] font-medium text-zinc-200">Allow GitHub Authentication</p>
-                    <p className="text-[11px] text-zinc-600">Enable users to sign up and sign in with GitHub.</p>
+                    <p className="text-[13px] font-medium text-zinc-200">
+                      Allow GitHub Authentication
+                    </p>
+                    <p className="text-[11px] text-zinc-600">
+                      Enable users to sign up and sign in with GitHub.
+                    </p>
                   </div>
                   <Switch
                     checked={config.allowGithubAuth}
-                    onCheckedChange={(v) => setConfig({ ...config, allowGithubAuth: v })}
+                    onCheckedChange={(v) =>
+                      setConfig({ ...config, allowGithubAuth: v })
+                    }
                   />
                 </div>
               </div>

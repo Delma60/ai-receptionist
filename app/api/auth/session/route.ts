@@ -1,6 +1,12 @@
 import { adminAuth } from "@/lib/firebase-admin";
+import { getTenantContext } from "@/app/server/auth-helpers";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+
+export async function GET() {
+  const context = await getTenantContext();
+  return NextResponse.json(context || { role: null });
+}
 
 export async function POST(request: Request) {
   const { idToken } = await request.json();

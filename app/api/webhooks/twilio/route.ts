@@ -1,5 +1,4 @@
-import { db } from "@/lib/firebase";
-import { collection, getDocs, limit, query, where } from "firebase/firestore";
+import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: Request) {
   try {
@@ -7,9 +6,11 @@ export async function POST(req: Request) {
     const to = formData.get('To') as string;
 
     // 1. Look up the tenant by the phone number called
-    const tenantsRef = collection(db, "tenants");
-    const q = query(tenantsRef, where("phoneNumber", "==", to), limit(1));
-    const tenantSnap = await getDocs(q);
+    const tenantSnap = await adminDb
+      .collection("tenants")
+      .where("phoneNumber", "==", to)
+      .limit(1)
+      .get();
 
     if (tenantSnap.empty) {
       return new Response(
@@ -21,9 +22,13 @@ export async function POST(req: Request) {
     const tenantId = tenantSnap.docs[0].id;
 
     // 2. Find the active agent for this tenant
-    const agentsRef = collection(db, "tenants", tenantId, "agents");
-    const aq = query(agentsRef, where("isActive", "==", true), limit(1));
-    const agentSnap = await getDocs(aq);
+    const agentSnap = await adminDb
+      .collection("tenants")
+      .doc(tenantId)
+      .collection("agents")
+      .where("isActive", "==", true)
+      .limit(1)
+      .get();
 
     if (agentSnap.empty) {
       return new Response(

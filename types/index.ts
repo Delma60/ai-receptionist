@@ -143,16 +143,16 @@ export interface Integration {
   description: string;
   category: IntegrationCategory;
   status: IntegrationStatus;
-  iconName: string;
-  iconColor: string;
-  iconBg: string;
+  iconName?: string;
+  iconColor?: string;
+  iconBg?: string;
   connectedAccount?: string;
   lastSync?: string;
-  features: string[];
+  features?: string[];
   popular?: boolean;
   comingSoon?: boolean;
-  publishedAt: string;
-  createdAt: string;
-  updatedAt: string;
-  published: boolean;
+  publishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  published?: boolean;
 }
