@@ -443,10 +443,10 @@ export default function AdminSettingsPage() {
     if (!config) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, "platform", "config"), {
+      await setDoc(doc(db, "platform", "config"), {
         ...config,
         updatedAt: serverTimestamp(),
-      });
+      }, { merge: true });
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);
     } catch (err) {

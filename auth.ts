@@ -19,8 +19,8 @@ export async function getTenantContext() {
   const headersList = await headers();
   const authorization = headersList.get("Authorization");
   
-  // Prefer session cookie for UI navigation, fallback to Bearer token for API calls
-  const token = session || (authorization?.startsWith("Bearer ") ? authorization.split("Bearer ")[1] : null);
+  // Prefer Bearer token for API calls, fallback to session cookie for UI navigation
+  const token = (authorization?.startsWith("Bearer ") ? authorization.split("Bearer ")[1] : null) || session;
 
   if (!token) return null;
 

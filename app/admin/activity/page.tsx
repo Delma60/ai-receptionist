@@ -17,7 +17,6 @@ import {
   orderBy,
   limit,
   onSnapshot,
-  getDocs,
 } from "firebase/firestore";
 import {
   Table,
@@ -66,20 +65,17 @@ export default function AdminActivityPage() {
 
   useEffect(() => {
     // 1. Fetch tenants to map targetTenantId to human-readable business names
-    const fetchTenants = async () => {
-      try {
-        const snap = await getDocs(collection(db, "tenants"));
+    const tenantsUnsub = onSnapshot(
+      collection(db, "tenants"),
+      (snap) => {
         const mapping: Record<string, string> = {};
         snap.docs.forEach((d) => {
           mapping[d.id] = d.data().name || "Unknown Business";
         });
         setTenants(mapping);
-      } catch (err) {
-        console.error("Error fetching tenants:", err);
-      }
-    };
-
-    fetchTenants();
+      },
+      (err) => console.error("Error fetching tenants:", err)
+    );
 
     // 2. Listen to the auditLog collection
     const q = query(
@@ -98,7 +94,10 @@ export default function AdminActivityPage() {
       setLoading(false);
     });
 
-    return () => unsub();
+    return () => {
+      tenantsUnsub();
+      unsub();
+    };
   }, []);
 
   const filteredLogs = logs.filter((log) => {

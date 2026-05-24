@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -24,6 +24,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 // ── Nav config ────────────────────────────────────────────
 const navGroups = [
@@ -70,7 +71,7 @@ function SystemStatusDot({ healthy = true }: { healthy?: boolean }) {
       <span
         className={cn(
           "relative inline-flex rounded-full h-2 w-2",
-          healthy ? "bg-emerald-500" : "bg-red-500"
+          healthy ? "bg-emerald-500" : "bg-red-500",
         )}
       />
     </span>
@@ -78,11 +79,49 @@ function SystemStatusDot({ healthy = true }: { healthy?: boolean }) {
 }
 
 // ── Main layout ───────────────────────────────────────────
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [verifying, setVerifying] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
+
+  useEffect(() => {
+    async function checkAdmin() {
+      try {
+        // We call a lightweight check to verify role
+        const res = await fetch("/api/auth/session");
+        const data = await res.json();
+
+        if (data.role === "admin") {
+          setAuthorized(true);
+        } else {
+          router.push("/dashboard");
+        }
+      } catch (err) {
+        router.push("/sign-in");
+      } finally {
+        setVerifying(false);
+      }
+    }
+    checkAdmin();
+  }, [router]);
+
+  if (verifying) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#0a0a0f]">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
+  if (!authorized) return null;
 
   return (
     <div className="flex min-h-screen bg-[#0a0a0f] font-[family-name:var(--font-geist-sans)]">
@@ -102,7 +141,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-
         {/* top accent line */}
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
 
@@ -110,7 +148,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div
           className={cn(
             "flex items-center gap-3 border-b border-white/[0.06] px-4 py-4",
-            collapsed && "justify-center px-0"
+            collapsed && "justify-center px-0",
           )}
         >
           <button
@@ -174,7 +212,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         collapsed && "justify-center px-0 w-full",
                         active
                           ? "bg-emerald-500/10 text-emerald-400"
-                          : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"
+                          : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200",
                       )}
                     >
                       {/* active left bar */}
@@ -185,7 +223,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <Icon
                         className={cn(
                           "h-4 w-4 shrink-0",
-                          active ? "text-emerald-400" : "text-zinc-600 group-hover:text-zinc-400"
+                          active
+                            ? "text-emerald-400"
+                            : "text-zinc-600 group-hover:text-zinc-400",
                         )}
                       />
 
@@ -218,7 +258,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div
             className={cn(
               "flex items-center gap-2.5 px-3 py-3",
-              collapsed && "justify-center px-0"
+              collapsed && "justify-center px-0",
             )}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600/20 ring-1 ring-emerald-500/30 text-[11px] font-bold text-emerald-400 uppercase">
@@ -250,7 +290,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
               "flex w-full items-center gap-2 border-t border-white/[0.06] px-3 py-2.5 text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors",
-              collapsed && "justify-center px-0"
+              collapsed && "justify-center px-0",
             )}
           >
             {collapsed ? (
@@ -269,12 +309,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div
         className={cn(
           "flex flex-1 flex-col transition-all duration-300 ease-in-out ml-0",
-          collapsed ? "lg:ml-[68px]" : "lg:ml-[240px]"
+          collapsed ? "lg:ml-[68px]" : "lg:ml-[240px]",
         )}
       >
         <div className="flex h-screen flex-col p-2">
           <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#0f0f18]/60 shadow-2xl">
-
             {/* ── Topbar ── */}
             <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0d0d14]/80 px-6 backdrop-blur-sm">
               {/* breadcrumb */}
@@ -290,10 +329,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <span className="font-medium text-zinc-300">
                   {navGroups
                     .flatMap((g) => g.items)
+                    .sort((a, b) => b.href.length - a.href.length)
                     .find((i) =>
                       i.href === "/admin"
                         ? pathname === "/admin"
-                        : pathname?.startsWith(i.href)
+                        : pathname?.startsWith(i.href),
                     )?.label ?? "Admin"}
                 </span>
               </div>

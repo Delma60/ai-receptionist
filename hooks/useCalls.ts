@@ -24,6 +24,7 @@ const PAGE_SIZE = 20;
 export function useCalls(tenantId: string | null | undefined) {
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [lastDoc, setLastDoc] =
@@ -68,8 +69,9 @@ export function useCalls(tenantId: string | null | undefined) {
   }, [tenantId]);
 
   const loadMore = useCallback(async () => {
-    if (!tenantId || !lastDoc) return;
+    if (!tenantId || !lastDoc || fetchingMore) return;
 
+    setFetchingMore(true);
     const q = query(
       collection(db, "tenants", tenantId, "calls"),
       orderBy("createdAt", "desc"),
@@ -79,10 +81,13 @@ export function useCalls(tenantId: string | null | undefined) {
 
     const snap = await getDocs(q);
     const more = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Call[];
-    setCalls((prev) => [...prev, ...more]);
-    setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
+    if (more.length > 0) {
+      setCalls((prev) => [...prev, ...more]);
+      setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
+    }
     setHasMore(snap.docs.length === PAGE_SIZE);
-  }, [tenantId, lastDoc]);
+    setFetchingMore(false);
+  }, [tenantId, lastDoc, fetchingMore]);
 
   return { calls, loading, error, hasMore, loadMore };
 }

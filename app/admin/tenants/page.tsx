@@ -253,7 +253,8 @@ export default function AdminTenantsPage() {
                   {filtered.map((tenant) => (
                     <TableRow
                       key={tenant.id}
-                      className="border-white/[0.06] hover:bg-white/[0.02] transition-colors group"
+                      className="border-white/[0.06] hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                      onClick={() => router.push(`/admin/tenants/${tenant.id}`)}
                     >
                       {/* Truncate long names/emails on mobile */}
                       <TableCell className="max-w-[150px] sm:max-w-xs">
@@ -302,7 +303,10 @@ export default function AdminTenantsPage() {
 
                       <TableCell className="text-right">
                         {/* Always show actions on mobile (lg:opacity-0), hover on desktop */}
-                        <div className="flex items-center justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div
+                          className="flex items-center justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Link href={`/admin/tenants/${tenant.id}`}>
                             <Button
                               size="icon-sm"

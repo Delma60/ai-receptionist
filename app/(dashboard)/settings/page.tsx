@@ -50,6 +50,7 @@ export default function SettingsPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const { theme, setTheme } = useTheme();
+  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
@@ -313,7 +314,7 @@ export default function SettingsPage() {
                         <div
                           className="h-full bg-violet-500 rounded-full"
                           style={{
-                            width: `${Math.min(((tenant.minutesUsed || 0) / (tenant.minutesLimit || 500)) * 100, 100)}%`,
+                            width: `${Math.min(((tenant.minutesUsed || 0) / Math.max(tenant.minutesLimit || 500, 1)) * 100, 100)}%`,
                           }}
                         />
                       </div>
@@ -420,7 +421,7 @@ export default function SettingsPage() {
                 </label>
                 <div className="flex gap-2">
                   <Input
-                    type="password"
+                    type={showApiKey ? "text" : "password"}
                     readOnly
                     value={tenant.apiKey || "••••••••••••••••"}
                     className="bg-white/[0.03] border-white/[0.08] font-mono text-xs"
@@ -428,8 +429,9 @@ export default function SettingsPage() {
                   <Button
                     variant="outline"
                     className="border-white/[0.06] bg-zinc-900"
+                    onClick={() => setShowApiKey(!showApiKey)}
                   >
-                    Reveal
+                    {showApiKey ? "Hide" : "Reveal"}
                   </Button>
                 </div>
                 <p className="text-[11px] text-zinc-500 mt-2">

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from 'next/request';
+import type { NextRequest } from 'next/server';
 
 export default function middleware(req: NextRequest) {
   const session = req.cookies.get("session")?.value;
@@ -20,6 +20,11 @@ export default function middleware(req: NextRequest) {
 
   // If not a public path and no session exists, redirect to sign-in
   if (!isPublicPath && !session) {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
+  }
+
+  // Protect admin routes from users without a session
+  if (pathname.startsWith("/admin") && !session) {
     return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 

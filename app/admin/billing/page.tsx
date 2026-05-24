@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Search, Download, Loader2, AlertCircle, ExternalLink, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, collectionGroup, query, orderBy, limit, onSnapshot, getDocs } from "firebase/firestore";
+import { collection, collectionGroup, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,20 +35,17 @@ export default function AdminBillingPage() {
 
   useEffect(() => {
     // 1. Fetch tenants purely to map IDs to business names in the table
-    const fetchTenants = async () => {
-      try {
-        const snap = await getDocs(collection(db, "tenants"));
+    const tenantsUnsub = onSnapshot(
+      collection(db, "tenants"),
+      (snap) => {
         const mapping: Record<string, string> = {};
         snap.docs.forEach((d) => {
           mapping[d.id] = d.data().name || "Unknown Business";
         });
         setTenants(mapping);
-      } catch (err) {
-        console.error("Error fetching tenants:", err);
-      }
-    };
-
-    fetchTenants();
+      },
+      (err) => console.error("Error fetching tenants:", err)
+    );
 
     // 2. Listen to all invoices platform-wide
     const q = query(
@@ -70,7 +67,10 @@ export default function AdminBillingPage() {
       setLoading(false);
     });
 
-    return () => unsub();
+    return () => {
+      tenantsUnsub();
+      unsub();
+    };
   }, []);
 
   const filteredInvoices = invoices.filter((inv) => {
