@@ -40,7 +40,10 @@ interface Agent {
 }
 
 // ── Sub-components ────────────────────────────────────
-const statusConfig: Record<AgentStatus, { label: string; dot: string; badge: string }> = {
+const statusConfig: Record<
+  AgentStatus,
+  { label: string; dot: string; badge: string }
+> = {
   active: {
     label: "Active",
     dot: "bg-emerald-500",
@@ -83,14 +86,16 @@ function AgentCard({ agent }: { agent: Agent }) {
           <div
             className={cn(
               "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg text-white font-semibold text-lg",
-              avatarGradients[agent.id] ?? "from-violet-600 to-indigo-700"
+              avatarGradients[agent.id] ?? "from-violet-600 to-indigo-700",
             )}
           >
             {agent.name[0]}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-[15px] font-semibold text-white">{agent.name}</p>
+              <p className="text-[15px] font-semibold text-white">
+                {agent.name}
+              </p>
               {agent.status === "active" && (
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -106,7 +111,7 @@ function AgentCard({ agent }: { agent: Agent }) {
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
-              status.badge
+              status.badge,
             )}
           >
             <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
@@ -132,7 +137,7 @@ function AgentCard({ agent }: { agent: Agent }) {
                       "flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors",
                       danger
                         ? "text-red-400 hover:bg-red-500/10"
-                        : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
+                        : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
                     )}
                     onClick={() => setMenuOpen(false)}
                   >
@@ -158,7 +163,9 @@ function AgentCard({ agent }: { agent: Agent }) {
         </div>
         <div className="flex items-center gap-1.5 text-[12px]">
           <Bot className="h-3 w-3 shrink-0 text-zinc-600" />
-          <span className={cn("capitalize font-medium", toneColors[agent.tone])}>
+          <span
+            className={cn("capitalize font-medium", toneColors[agent.tone])}
+          >
             {agent.tone}
           </span>
         </div>
@@ -173,23 +180,31 @@ function AgentCard({ agent }: { agent: Agent }) {
         <div className="mb-4 grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] px-3 py-2">
             <p className="text-[11px] text-zinc-600 mb-0.5">Calls handled</p>
-            <p className="text-[15px] font-semibold text-white">{agent.callsHandled}</p>
+            <p className="text-[15px] font-semibold text-white">
+              {agent.callsHandled}
+            </p>
           </div>
           <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] px-3 py-2">
             <p className="text-[11px] text-zinc-600 mb-0.5">Booking rate</p>
-            <p className="text-[15px] font-semibold text-white">{agent.bookingRate}%</p>
+            <p className="text-[15px] font-semibold text-white">
+              {agent.bookingRate}%
+            </p>
           </div>
         </div>
       ) : (
         <div className="mb-4 rounded-lg border border-dashed border-white/[0.08] px-3 py-3 text-center">
-          <p className="text-[12px] text-zinc-600">Setup incomplete — no phone number assigned</p>
+          <p className="text-[12px] text-zinc-600">
+            Setup incomplete — no phone number assigned
+          </p>
         </div>
       )}
 
       {/* Footer */}
       <div className="flex items-center justify-between">
         <p className="text-[11px] text-zinc-600">
-          {agent.status !== "draft" ? `Last call ${agent.lastCallAt}` : `Created ${agent.createdAt}`}
+          {agent.status !== "draft"
+            ? `Last call ${agent.lastCallAt}`
+            : `Created ${agent.createdAt}`}
         </p>
         <a
           href={`/agents/${agent.id}`}
@@ -226,8 +241,12 @@ export default function AgentsPage() {
           id: doc.id,
           ...data,
           // faqCount removed; always use faqs length
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString() : (data.createdAt || "Recently"),
-          lastCallAt: data.lastCallAt?.toDate ? data.lastCallAt.toDate().toLocaleTimeString() : (data.lastCallAt || "Never"),
+          createdAt: data.createdAt?.toDate
+            ? data.createdAt.toDate().toLocaleDateString()
+            : data.createdAt || "Recently",
+          lastCallAt: data.lastCallAt?.toDate
+            ? data.lastCallAt.toDate().toLocaleTimeString()
+            : data.lastCallAt || "Never",
         } as Agent;
       });
       setAgents(agentsData);
@@ -248,7 +267,11 @@ export default function AgentsPage() {
   };
 
   if (loading) {
-    return <div className="flex h-[400px] items-center justify-center text-zinc-500">Loading agents...</div>;
+    return (
+      <div className="flex h-[400px] items-center justify-center text-zinc-500">
+        Loading agents...
+      </div>
+    );
   }
 
   return (
@@ -256,7 +279,9 @@ export default function AgentsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Agents</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">
+            Agents
+          </h1>
           <p className="mt-1 text-sm text-zinc-500">
             {counts.active} active · {counts.draft} draft
           </p>
@@ -280,14 +305,16 @@ export default function AgentsPage() {
               "rounded-md px-3 py-1.5 text-[12px] font-medium transition-all capitalize",
               filter === tab
                 ? "bg-white/[0.08] text-white"
-                : "text-zinc-500 hover:text-zinc-300"
+                : "text-zinc-500 hover:text-zinc-300",
             )}
           >
             {tab}
             <span
               className={cn(
                 "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                filter === tab ? "bg-violet-600/80 text-white" : "bg-white/[0.05] text-zinc-600"
+                filter === tab
+                  ? "bg-violet-600/80 text-white"
+                  : "bg-white/[0.05] text-zinc-600",
               )}
             >
               {counts[tab]}
@@ -315,7 +342,9 @@ export default function AgentsPage() {
               <p className="text-[13px] font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">
                 Add new agent
               </p>
-              <p className="text-[11px] text-zinc-600 mt-0.5">Configure an AI receptionist</p>
+              <p className="text-[11px] text-zinc-600 mt-0.5">
+                Configure an AI receptionist
+              </p>
             </div>
           </a>
         </div>
@@ -324,8 +353,12 @@ export default function AgentsPage() {
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04]">
             <Bot className="h-6 w-6 text-zinc-600" />
           </div>
-          <p className="text-[14px] font-medium text-zinc-400">No agents found</p>
-          <p className="mt-1 text-[12px] text-zinc-600">Try a different filter or create a new agent</p>
+          <p className="text-[14px] font-medium text-zinc-400">
+            No agents found
+          </p>
+          <p className="mt-1 text-[12px] text-zinc-600">
+            Try a different filter or create a new agent
+          </p>
         </div>
       )}
 
@@ -334,10 +367,14 @@ export default function AgentsPage() {
         <div className="flex items-center gap-2.5">
           <Zap className="h-4 w-4 text-violet-400" />
           <p className="text-[13px] text-zinc-400">
-            <span className="text-zinc-200 font-medium">{counts.active}/1</span> active agents on Starter plan
+            <span className="text-zinc-200 font-medium">{counts.active}/1</span>{" "}
+            active agents on Starter plan
           </p>
         </div>
-        <a href="/settings" className="text-[12px] text-violet-400 hover:text-violet-300 transition-colors font-medium">
+        <a
+          href="/settings"
+          className="text-[12px] text-violet-400 hover:text-violet-300 transition-colors font-medium"
+        >
           Upgrade →
         </a>
       </div>

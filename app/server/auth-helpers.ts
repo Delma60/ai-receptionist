@@ -1,0 +1,47 @@
+import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { headers, cookies } from "next/headers";
+
+/**
+ * Server-side utility to check if the current user has the admin role.
+ */
+export async function isAdmin(): Promise<boolean> {
+  const context = await getTenantContext();
+  return context?.role === "admin";
+}
+
+/**
+ * Retrieves the tenant context for the current session.
+ */
+export async function getTenantContext() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
+  
+  const headersList = await headers();
+  const authorization = headersList.get("Authorization");
+  
+  // Prefer Bearer token for API calls, fallback to session cookie for UI navigation
+  const token = (authorization?.startsWith("Bearer ") ? authorization.split("Bearer ")[1] : null) || session;
+
+  if (!token) return null;
+
+  try {
+    let decodedToken;
+    if (session) {
+      // Use verifySessionCookie for cookie-based sessions
+      decodedToken = await adminAuth.verifySessionCookie(token, true);
+    } else {
+      // Use verifyIdToken for header-based Bearer tokens
+      decodedToken = await adminAuth.verifyIdToken(token);
+    }
+
+    return {
+      userId: decodedToken.uid,
+      tenantId: (decodedToken.tenantId as string) || decodedToken.uid,
+      role: (decodedToken.role as string) || "user",
+    };
+  } catch (error) {
+    console.error("Auth Error:", error);
+    return null;
+  }
+}
