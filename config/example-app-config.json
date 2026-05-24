@@ -1,0 +1,8 @@
+{
+  "paymentProvider": "flutterwave",
+  "allowGoogleAuth": true,
+  "allowGithubAuth": false,
+  "maintenanceMode": false,
+  "defaultTrialDays": 14,
+  "supportEmail": "support@receptionly.ai"
+}

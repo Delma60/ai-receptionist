@@ -34,6 +34,7 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { logAdminAction } from "@/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -55,6 +56,9 @@ interface PlatformConfig {
   supportEmail: string;
   maxAgentsPerTenant?: number;
   webhookRetryAttempts?: number;
+  paymentProvider: 'stripe' | 'flutterwave';
+  allowGoogleAuth: boolean;
+  allowGithubAuth: boolean;
   updatedAt?: any;
 }
 
@@ -377,6 +381,9 @@ export default function AdminSettingsPage() {
             supportEmail: "support@receptionly.ai",
             maxAgentsPerTenant: 10,
             webhookRetryAttempts: 3,
+            paymentProvider: 'stripe',
+            allowGoogleAuth: true,
+            allowGithubAuth: true,
           };
           await setDoc(doc(db, "platform", "config"), defaults);
           setConfig(defaults);
@@ -395,11 +402,19 @@ export default function AdminSettingsPage() {
     };
   }, []);
 
-  const handleToggleFlag = async (id: string, current: boolean) => {
+  const handleToggleFlag = async (id: string, name: string, current: boolean) => {
     try {
       await updateDoc(doc(db, "featureFlags", id), {
         enabled: !current,
         updatedAt: serverTimestamp(),
+      });
+
+      // Gap #13: Audit the action
+      const res = await fetch('/api/auth/session');
+      const admin = await res.json();
+      await logAdminAction(admin.userId, "feature_flag", "global", {
+        flagName: name,
+        newState: !current
       });
     } catch (err) {
       console.error(err);
@@ -773,6 +788,69 @@ export default function AdminSettingsPage() {
                   </p>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Authentication & Payments */}
+          <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/10 border border-sky-500/20">
+                <Shield className="h-3.5 w-3.5 text-sky-400" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-zinc-200">
+                  Auth & Payments
+                </p>
+                <p className="text-[11px] text-zinc-500">
+                  Global configurations for authentication and billing.
+                </p>
+              </div>
+            </div>
+            <div className="p-5 space-y-6">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    Active Payment Provider
+                  </label>
+                  <select
+                    value={config.paymentProvider}
+                    onChange={(e) => setConfig({ ...config, paymentProvider: e.target.value as any })}
+                    className="w-full rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[13px] text-white focus:border-violet-500 outline-none h-9"
+                  >
+                    <option value="stripe">Stripe (Global)</option>
+                    <option value="flutterwave">Flutterwave (Africa/Nigeria)</option>
+                  </select>
+                  <p className="text-[10px] text-zinc-600">
+                    Flutterwave is recommended for regions where Stripe has limited support.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-white/[0.04]">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Authentication Methods</p>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] font-medium text-zinc-200">Allow Google Authentication</p>
+                    <p className="text-[11px] text-zinc-600">Enable users to sign up and sign in with Google.</p>
+                  </div>
+                  <Switch
+                    checked={config.allowGoogleAuth}
+                    onCheckedChange={(v) => setConfig({ ...config, allowGoogleAuth: v })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] font-medium text-zinc-200">Allow GitHub Authentication</p>
+                    <p className="text-[11px] text-zinc-600">Enable users to sign up and sign in with GitHub.</p>
+                  </div>
+                  <Switch
+                    checked={config.allowGithubAuth}
+                    onCheckedChange={(v) => setConfig({ ...config, allowGithubAuth: v })}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

@@ -1,9 +1,25 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from 'next/server';
 
-export default function middleware(req: NextRequest) {
+export default async function middleware(req: NextRequest) {
   const session = req.cookies.get("session")?.value;
   const { pathname } = req.nextUrl;
+
+  // 1. Maintenance Mode Check
+  // Note: In a production environment, you would typically cache this in Redis 
+  // to avoid a Firestore read on every single request.
+  try {
+    const configRes = await fetch(`${req.nextUrl.origin}/api/admin/config`);
+    const config = await configRes.json();
+
+    if (config?.maintenanceMode && !pathname.startsWith("/admin") && !pathname.startsWith("/api/admin")) {
+      // Only block non-admin routes. We assume admins can still access /admin
+      // This requires the session check below to verify role eventually.
+      return NextResponse.rewrite(new URL("/maintenance", req.url));
+    }
+  } catch (e) {
+    // Fail open if config fetch fails to prevent lock-out
+  }
 
   // Paths that don't require authentication
   const isPublicPath = 

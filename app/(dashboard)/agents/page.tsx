@@ -34,7 +34,7 @@ interface Agent {
   status: AgentStatus;
   callsHandled: number;
   bookingRate: number;
-  faqCount: number;
+  faqs?: { question: string; answer: string }[];
   createdAt: string;
   lastCallAt: string;
 }
@@ -164,7 +164,7 @@ function AgentCard({ agent }: { agent: Agent }) {
         </div>
         <div className="flex items-center gap-1.5 text-[12px] text-zinc-500">
           <MessageSquare className="h-3 w-3 shrink-0" />
-          <span>{agent.faqCount} FAQs</span>
+          <span>{agent.faqs ? agent.faqs.length : 0} FAQs</span>
         </div>
       </div>
 
@@ -225,7 +225,7 @@ export default function AgentsPage() {
         return {
           id: doc.id,
           ...data,
-          faqCount: data.faqs ? data.faqs.length : (data.faqCount || 0),
+          // faqCount removed; always use faqs length
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString() : (data.createdAt || "Recently"),
           lastCallAt: data.lastCallAt?.toDate ? data.lastCallAt.toDate().toLocaleTimeString() : (data.lastCallAt || "Never"),
         } as Agent;
