@@ -1,12 +1,14 @@
-// proxy.ts  (Next.js middleware — Edge Runtime)
+// proxy.ts — Next.js edge middleware (all routing logic lives here)
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { hasRole, ROUTE_GUARDS, type UserRole } from "@/lib/rbac";
+import { hasRole, ROUTE_GUARDS, type PlatformRole } from "@/lib/rbac";
+
+// ── Constants ──────────────────────────────────────────────────────────
+
+const PUBLIC_PATHS  = new Set(["/", "/sign-in", "/sign-up", "/maintenance", "/api/admin/set-role"]);
+const SKIP_PREFIXES = ["/_next", "/api/auth", "/api/webhooks", "/api/config", "/favicon", "/api/admin/set-role"];
 
 // ── Helpers ────────────────────────────────────────────────────────────
-
-const PUBLIC_PATHS   = new Set(["/", "/sign-in", "/sign-up", "/maintenance", "/api/admin/set-role"]);
-const SKIP_PREFIXES  = ["/_next", "/api/auth", "/api/webhooks", "/api/config", "/favicon"];
 
 function isPublicPath(pathname: string): boolean {
   if (SKIP_PREFIXES.some((p) => pathname.startsWith(p))) return true;
@@ -15,17 +17,15 @@ function isPublicPath(pathname: string): boolean {
   return false;
 }
 
-function getRole(req: NextRequest): UserRole | null {
+function getRole(req: NextRequest): PlatformRole | null {
   const role = req.cookies.get("user-role")?.value;
-  // Only accept known roles — never trust arbitrary cookie values for routing decisions.
-  // The real enforcement still happens server-side in each route/API handler.
   if (role === "admin" || role === "support" || role === "user") return role;
   return null;
 }
 
 // ── Middleware ─────────────────────────────────────────────────────────
 
-export default async function middleware(req: NextRequest) {
+export  async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const session  = req.cookies.get("session")?.value;
   const userRole = getRole(req);
@@ -53,10 +53,9 @@ export default async function middleware(req: NextRequest) {
         if (guard.isApi || pathname.startsWith("/api/")) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
-        // Redirect to dashboard instead of exposing that /admin exists
         return NextResponse.redirect(new URL("/dashboard", req.url));
       }
-      break; // First matching guard wins
+      break; // first matching guard wins
     }
   }
 
