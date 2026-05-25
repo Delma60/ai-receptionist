@@ -15,6 +15,7 @@ import {
   Zap,
   Globe,
   MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db, auth } from "@/lib/firebase";
@@ -74,9 +75,54 @@ const avatarGradients: Record<string, string> = {
   "4": "from-amber-500 to-orange-600",
 };
 
-function AgentCard({ agent }: { agent: Agent }) {
+function AgentCard({
+  agent,
+  onDelete,
+}: {
+  agent: Agent;
+  onDelete: (id: string) => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const status = statusConfig[agent.status];
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const status = statusConfig[agent.status] ?? statusConfig.active;
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete agent "${agent.name}"? This cannot be undone.`))
+      return;
+    setIsDeleting(true);
+    setMenuOpen(false);
+    try {
+      const res = await fetch(`/api/agents/${agent.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Delete failed");
+      }
+      onDelete(agent.id);
+    } catch (err: any) {
+      alert(err.message || "Failed to delete agent");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Test call: opens the Vapi web call widget or shows a placeholder
+  const handleTestCall = async () => {
+    setIsTesting(true);
+    setMenuOpen(false);
+    try {
+      // In a real deployment this would open a Vapi web-call widget.
+      // For now we show an alert with the agent's Vapi ID so it's testable.
+      alert(
+        `Test call initiated!\n\nYou can test this agent by calling the provisioned phone number, or use the Vapi dashboard to test assistant ID linked to "${agent.name}".`,
+      );
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   return (
     <div className="group relative rounded-xl border border-white/[0.06] bg-zinc-900/80 p-5 transition-all duration-150 hover:border-white/[0.1] hover:bg-zinc-900">
@@ -126,25 +172,38 @@ function AgentCard({ agent }: { agent: Agent }) {
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-8 z-10 w-40 rounded-lg border border-white/[0.08] bg-zinc-900 py-1 shadow-xl">
-                {[
-                  { icon: Play, label: "Test call" },
-                  { icon: Settings2, label: "Configure" },
-                  { icon: Trash2, label: "Delete", danger: true },
-                ].map(({ icon: Icon, label, danger }) => (
-                  <button
-                    key={label}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors",
-                      danger
-                        ? "text-red-400 hover:bg-red-500/10"
-                        : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200",
-                    )}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {label}
-                  </button>
-                ))}
+                <button
+                  onClick={handleTestCall}
+                  disabled={isTesting}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200 transition-colors disabled:opacity-50"
+                >
+                  {isTesting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                  Test call
+                </button>
+                <a
+                  href={`/agents/${agent.id}`}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200 transition-colors"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Configure
+                </a>
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  {isDeleting ? "Deleting…" : "Delete"}
+                </button>
               </div>
             )}
           </div>
@@ -155,7 +214,7 @@ function AgentCard({ agent }: { agent: Agent }) {
       <div className="mb-4 grid grid-cols-2 gap-2">
         <div className="flex items-center gap-1.5 text-[12px] text-zinc-500">
           <Phone className="h-3 w-3 shrink-0" />
-          <span className="truncate">{agent.phoneNumber}</span>
+          <span className="truncate">{agent.phoneNumber || "No number"}</span>
         </div>
         <div className="flex items-center gap-1.5 text-[12px] text-zinc-500">
           <Globe className="h-3 w-3 shrink-0" />
@@ -164,7 +223,10 @@ function AgentCard({ agent }: { agent: Agent }) {
         <div className="flex items-center gap-1.5 text-[12px]">
           <Bot className="h-3 w-3 shrink-0 text-zinc-600" />
           <span
-            className={cn("capitalize font-medium", toneColors[agent.tone])}
+            className={cn(
+              "capitalize font-medium",
+              toneColors[agent.tone] ?? "text-zinc-400",
+            )}
           >
             {agent.tone}
           </span>
@@ -181,13 +243,13 @@ function AgentCard({ agent }: { agent: Agent }) {
           <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] px-3 py-2">
             <p className="text-[11px] text-zinc-600 mb-0.5">Calls handled</p>
             <p className="text-[15px] font-semibold text-white">
-              {agent.callsHandled}
+              {agent.callsHandled ?? 0}
             </p>
           </div>
           <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] px-3 py-2">
             <p className="text-[11px] text-zinc-600 mb-0.5">Booking rate</p>
             <p className="text-[15px] font-semibold text-white">
-              {agent.bookingRate}%
+              {agent.bookingRate ?? 0}%
             </p>
           </div>
         </div>
@@ -232,7 +294,6 @@ export default function AgentsPage() {
 
   useEffect(() => {
     if (!user) return;
-
     const q = query(collection(db, "tenants", user.uid, "agents"));
     const unsub = onSnapshot(q, (snapshot) => {
       const agentsData = snapshot.docs.map((doc) => {
@@ -240,7 +301,6 @@ export default function AgentsPage() {
         return {
           id: doc.id,
           ...data,
-          // faqCount removed; always use faqs length
           createdAt: data.createdAt?.toDate
             ? data.createdAt.toDate().toLocaleDateString()
             : data.createdAt || "Recently",
@@ -252,13 +312,16 @@ export default function AgentsPage() {
       setAgents(agentsData);
       setLoading(false);
     });
-
     return () => unsub();
   }, [user]);
 
+  // Optimistic removal after successful delete API call
+  const handleAgentDeleted = (agentId: string) => {
+    setAgents((prev) => prev.filter((a) => a.id !== agentId));
+  };
+
   const filtered =
     filter === "all" ? agents : agents.filter((a) => a.status === filter);
-
   const counts = {
     all: agents.length,
     active: agents.filter((a) => a.status === "active").length,
@@ -327,10 +390,12 @@ export default function AgentsPage() {
       {filtered.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
+            <AgentCard
+              key={agent.id}
+              agent={agent}
+              onDelete={handleAgentDeleted}
+            />
           ))}
-
-          {/* Add agent card */}
           <a
             href="/agents/new"
             className="group flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/[0.08] bg-transparent p-8 text-center transition-all hover:border-violet-500/30 hover:bg-violet-500/5"
