@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bot,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   Sparkles,
   User,
   Volume2,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +72,16 @@ const TONES = [
   },
 ] as const;
 
-const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese", "Mandarin", "English / Spanish", "English / French"];
+const LANGUAGES = [
+  "English",
+  "Spanish",
+  "French",
+  "German",
+  "Portuguese",
+  "Mandarin",
+  "English / Spanish",
+  "English / French",
+];
 
 const PHONE_NUMBERS = [
   { number: "+1 (415) 555-0182", area: "San Francisco, CA" },
@@ -93,7 +104,9 @@ function StepIdentity({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">Give your agent an identity</h2>
+        <h2 className="text-lg font-semibold text-white">
+          Give your agent an identity
+        </h2>
         <p className="mt-1 text-sm text-zinc-500">
           This is how your agent introduces itself to callers.
         </p>
@@ -140,7 +153,9 @@ function StepIdentity({
           onChange={(e) => onChange("greeting", e.target.value)}
           className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-[14px] text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-1 focus:ring-violet-500/20"
         />
-        <p className="text-[11px] text-zinc-600">This is the first thing callers hear when they call.</p>
+        <p className="text-[11px] text-zinc-600">
+          This is the first thing callers hear when they call.
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -157,19 +172,34 @@ function StepIdentity({
                 "relative rounded-xl border p-4 text-left transition-all",
                 form.tone === tone.value
                   ? tone.color
-                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]"
+                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]",
               )}
             >
               {form.tone === tone.value && (
-                <span className={cn("absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full", tone.check)}>
+                <span
+                  className={cn(
+                    "absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full",
+                    tone.check,
+                  )}
+                >
                   <Check className="h-2.5 w-2.5 text-white" />
                 </span>
               )}
               <div className="text-xl mb-2">{tone.emoji}</div>
-              <p className={cn("text-[13px] font-semibold", form.tone === tone.value ? "" : "text-zinc-300")}>
+              <p
+                className={cn(
+                  "text-[13px] font-semibold",
+                  form.tone === tone.value ? "" : "text-zinc-300",
+                )}
+              >
                 {tone.label}
               </p>
-              <p className={cn("text-[11px] mt-0.5", form.tone === tone.value ? "opacity-80" : "text-zinc-600")}>
+              <p
+                className={cn(
+                  "text-[11px] mt-0.5",
+                  form.tone === tone.value ? "opacity-80" : "text-zinc-600",
+                )}
+              >
                 {tone.desc}
               </p>
             </button>
@@ -198,23 +228,33 @@ function StepIdentity({
       {/* Preview card */}
       {(form.name || form.business) && (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <p className="text-[11px] font-medium uppercase tracking-widest text-zinc-600 mb-3">Preview</p>
+          <p className="text-[11px] font-medium uppercase tracking-widest text-zinc-600 mb-3">
+            Preview
+          </p>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 text-white font-semibold">
               {form.name?.[0] ?? "?"}
             </div>
             <div>
               <p className="text-[14px] font-semibold text-white">
-                {form.name || "Your agent"}{form.business ? ` · ${form.business}` : ""}
+                {form.name || "Your agent"}
+                {form.business ? ` · ${form.business}` : ""}
               </p>
-              <p className={cn("text-[12px] capitalize", selectedTone ? toneColor(form.tone) : "text-zinc-500")}>
+              <p
+                className={cn(
+                  "text-[12px] capitalize",
+                  selectedTone ? toneColor(form.tone) : "text-zinc-500",
+                )}
+              >
                 {form.tone} · {form.language}
               </p>
             </div>
           </div>
           {form.greeting && (
             <div className="mt-3 rounded-lg bg-white/[0.04] px-3 py-2.5">
-              <p className="text-[12px] text-zinc-400 italic">"{form.greeting}"</p>
+              <p className="text-[12px] text-zinc-400 italic">
+                "{form.greeting}"
+              </p>
             </div>
           )}
         </div>
@@ -237,7 +277,11 @@ function StepKnowledge({
 }: {
   form: AgentForm;
   onAddFAQ: () => void;
-  onUpdateFAQ: (id: string, field: "question" | "answer", value: string) => void;
+  onUpdateFAQ: (
+    id: string,
+    field: "question" | "answer",
+    value: string,
+  ) => void;
   onDeleteFAQ: (id: string) => void;
 }) {
   return (
@@ -245,7 +289,8 @@ function StepKnowledge({
       <div>
         <h2 className="text-lg font-semibold text-white">Train your agent</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Add frequently asked questions so your agent can answer callers accurately.
+          Add frequently asked questions so your agent can answer callers
+          accurately.
         </p>
       </div>
 
@@ -298,7 +343,9 @@ function StepKnowledge({
             <Sparkles className="h-4 w-4 text-violet-400" />
           </div>
           <div>
-            <p className="text-[13px] font-medium text-zinc-300">Tips for great FAQs</p>
+            <p className="text-[13px] font-medium text-zinc-300">
+              Tips for great FAQs
+            </p>
             <ul className="mt-1.5 space-y-1 text-[12px] text-zinc-500">
               <li>• Include hours, location, services, and pricing</li>
               <li>• Add common objections and how to handle them</li>
@@ -321,14 +368,19 @@ function StepPhone({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">Assign a phone number</h2>
+        <h2 className="text-lg font-semibold text-white">
+          Assign a phone number
+        </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Choose a new number or use your own. Callers will reach your agent at this number.
+          Choose a new number or use your own. Callers will reach your agent at
+          this number.
         </p>
       </div>
 
       <div className="space-y-2">
-        <p className="text-[13px] font-medium text-zinc-300">Available numbers</p>
+        <p className="text-[13px] font-medium text-zinc-300">
+          Available numbers
+        </p>
         <div className="space-y-2">
           {PHONE_NUMBERS.map((num) => (
             <button
@@ -338,21 +390,25 @@ function StepPhone({
                 "flex w-full items-center justify-between rounded-xl border px-4 py-3.5 text-left transition-all",
                 form.phoneNumber === num.number
                   ? "border-violet-500/40 bg-violet-500/10"
-                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]"
+                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]",
               )}
             >
               <div className="flex items-center gap-3">
                 <Phone
                   className={cn(
                     "h-4 w-4 shrink-0",
-                    form.phoneNumber === num.number ? "text-violet-400" : "text-zinc-600"
+                    form.phoneNumber === num.number
+                      ? "text-violet-400"
+                      : "text-zinc-600",
                   )}
                 />
                 <div>
                   <p
                     className={cn(
                       "text-[14px] font-semibold font-mono",
-                      form.phoneNumber === num.number ? "text-white" : "text-zinc-300"
+                      form.phoneNumber === num.number
+                        ? "text-white"
+                        : "text-zinc-300",
                     )}
                   >
                     {num.number}
@@ -375,7 +431,9 @@ function StepPhone({
           <div className="w-full border-t border-white/[0.06]" />
         </div>
         <div className="relative flex justify-center text-[11px] uppercase">
-          <span className="bg-zinc-950 px-3 text-zinc-600 tracking-widest">or</span>
+          <span className="bg-zinc-950 px-3 text-zinc-600 tracking-widest">
+            or
+          </span>
         </div>
       </div>
 
@@ -388,7 +446,9 @@ function StepPhone({
           placeholder="+1 (555) 000-0000"
           className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-[14px] font-mono text-white placeholder-zinc-600 outline-none transition focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-1 focus:ring-violet-500/20"
         />
-        <p className="text-[11px] text-zinc-600">Number porting takes 1–3 business days.</p>
+        <p className="text-[11px] text-zinc-600">
+          Number porting takes 1–3 business days.
+        </p>
       </div>
 
       <button
@@ -401,7 +461,15 @@ function StepPhone({
   );
 }
 
-function StepReview({ form }: { form: AgentForm }) {
+function StepReview({
+  form,
+  isLaunching,
+  launchError,
+}: {
+  form: AgentForm;
+  isLaunching: boolean;
+  launchError: string | null;
+}) {
   const checks = [
     { label: "Agent name set", ok: !!form.name },
     { label: "Business name set", ok: !!form.business },
@@ -433,7 +501,9 @@ function StepReview({ form }: { form: AgentForm }) {
             <p className="text-[15px] font-semibold text-white">
               {form.name || "Unnamed agent"}
             </p>
-            <p className="text-[12px] text-zinc-500">{form.business || "No business set"}</p>
+            <p className="text-[12px] text-zinc-500">
+              {form.business || "No business set"}
+            </p>
           </div>
         </div>
 
@@ -442,11 +512,21 @@ function StepReview({ form }: { form: AgentForm }) {
             { label: "Tone", value: form.tone, color: toneColor(form.tone) },
             { label: "Language", value: form.language },
             { label: "Phone", value: form.phoneNumber || "Not assigned" },
-            { label: "FAQs", value: `${form.faqs.filter((f) => f.question).length} questions` },
+            {
+              label: "FAQs",
+              value: `${form.faqs.filter((f) => f.question).length} questions`,
+            },
           ].map(({ label, value, color }) => (
             <div key={label} className="flex items-center justify-between">
               <span className="text-zinc-600">{label}</span>
-              <span className={cn("font-medium capitalize", color ?? "text-zinc-300")}>{value}</span>
+              <span
+                className={cn(
+                  "font-medium capitalize",
+                  color ?? "text-zinc-300",
+                )}
+              >
+                {value}
+              </span>
             </div>
           ))}
         </div>
@@ -454,7 +534,9 @@ function StepReview({ form }: { form: AgentForm }) {
         {form.greeting && (
           <div className="mt-4 rounded-lg bg-white/[0.04] border border-white/[0.04] px-3 py-2.5">
             <p className="text-[11px] text-zinc-600 mb-1">Greeting</p>
-            <p className="text-[12px] text-zinc-400 italic">"{form.greeting}"</p>
+            <p className="text-[12px] text-zinc-400 italic">
+              "{form.greeting}"
+            </p>
           </div>
         )}
       </div>
@@ -462,8 +544,12 @@ function StepReview({ form }: { form: AgentForm }) {
       {/* Checklist */}
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[13px] font-medium text-zinc-300">Setup checklist</p>
-          <span className="text-[12px] text-zinc-500">{readyCount}/{checks.length} complete</span>
+          <p className="text-[13px] font-medium text-zinc-300">
+            Setup checklist
+          </p>
+          <span className="text-[12px] text-zinc-500">
+            {readyCount}/{checks.length} complete
+          </span>
         </div>
         <div className="space-y-2">
           {checks.map(({ label, ok }) => (
@@ -471,12 +557,19 @@ function StepReview({ form }: { form: AgentForm }) {
               <div
                 className={cn(
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-                  ok ? "bg-emerald-500" : "border border-white/[0.1] bg-white/[0.04]"
+                  ok
+                    ? "bg-emerald-500"
+                    : "border border-white/[0.1] bg-white/[0.04]",
                 )}
               >
                 {ok && <Check className="h-2.5 w-2.5 text-white" />}
               </div>
-              <span className={cn("text-[12px]", ok ? "text-zinc-300" : "text-zinc-600")}>
+              <span
+                className={cn(
+                  "text-[12px]",
+                  ok ? "text-zinc-300" : "text-zinc-600",
+                )}
+              >
                 {label}
               </span>
             </div>
@@ -484,11 +577,37 @@ function StepReview({ form }: { form: AgentForm }) {
         </div>
       </div>
 
-      {!allGood && (
+      {!allGood && !launchError && (
         <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3">
           <p className="text-[12px] text-amber-400">
-            Some fields are incomplete. You can still save as draft and finish later.
+            Some fields are incomplete. You can still launch with the basics and
+            update later.
           </p>
+        </div>
+      )}
+
+      {launchError && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3">
+          <p className="text-[12px] font-medium text-red-400">
+            Launch failed: {launchError}
+          </p>
+          <p className="text-[11px] text-red-400/70 mt-1">
+            Check your Vapi API key and try again.
+          </p>
+        </div>
+      )}
+
+      {isLaunching && (
+        <div className="flex items-center gap-3 rounded-lg border border-violet-500/20 bg-violet-500/10 px-4 py-3">
+          <Loader2 className="h-4 w-4 text-violet-400 animate-spin shrink-0" />
+          <div>
+            <p className="text-[13px] font-medium text-violet-300">
+              Launching your agent…
+            </p>
+            <p className="text-[11px] text-violet-400/70 mt-0.5">
+              Creating Vapi assistant and saving configuration
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -497,7 +616,11 @@ function StepReview({ form }: { form: AgentForm }) {
 
 // ── Main Wizard ────────────────────────────────────────
 export default function NewAgentPage() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
+  const [isLaunching, setIsLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+
   const [form, setForm] = useState<AgentForm>({
     name: "",
     business: "",
@@ -515,7 +638,10 @@ export default function NewAgentPage() {
   function addFAQ() {
     setForm((prev) => ({
       ...prev,
-      faqs: [...prev.faqs, { id: Date.now().toString(), question: "", answer: "" }],
+      faqs: [
+        ...prev.faqs,
+        { id: Date.now().toString(), question: "", answer: "" },
+      ],
     }));
   }
 
@@ -531,6 +657,49 @@ export default function NewAgentPage() {
       ...prev,
       faqs: prev.faqs.filter((f) => f.id !== id),
     }));
+  }
+
+  /**
+   * Called when the user clicks "Launch agent" on the review step.
+   * POSTs to /api/agents which creates the Vapi assistant and persists to Firestore.
+   */
+  async function handleLaunch() {
+    setIsLaunching(true);
+    setLaunchError(null);
+
+    try {
+      const res = await fetch("/api/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Server error ${res.status}`);
+      }
+
+      const { agentId } = await res.json();
+
+      // If the user selected a phone number, provision it via Twilio.
+      if (form.phoneNumber && agentId) {
+        await fetch("/api/phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId, phoneNumber: form.phoneNumber }),
+        }).catch((err) => {
+          // Phone provisioning failure is non-fatal — log and continue.
+          console.warn("Phone provisioning failed:", err);
+        });
+      }
+
+      // Navigate to the new agent's detail page.
+      router.push(`/agents/${agentId}`);
+    } catch (err: any) {
+      setLaunchError(err.message || "An unexpected error occurred.");
+    } finally {
+      setIsLaunching(false);
+    }
   }
 
   return (
@@ -555,7 +724,7 @@ export default function NewAgentPage() {
                 onClick={() => s.id < step && setStep(s.id)}
                 className={cn(
                   "flex flex-col items-center gap-1 text-center",
-                  s.id < step ? "cursor-pointer" : "cursor-default"
+                  s.id < step ? "cursor-pointer" : "cursor-default",
                 )}
               >
                 <div
@@ -564,8 +733,8 @@ export default function NewAgentPage() {
                     step === s.id
                       ? "border-violet-500 bg-violet-600 text-white shadow-lg shadow-violet-900/40"
                       : s.id < step
-                      ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-400"
-                      : "border-white/[0.08] bg-white/[0.04] text-zinc-600"
+                        ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-400"
+                        : "border-white/[0.08] bg-white/[0.04] text-zinc-600",
                   )}
                 >
                   {s.id < step ? <Check className="h-3.5 w-3.5" /> : s.id}
@@ -574,7 +743,11 @@ export default function NewAgentPage() {
                   <p
                     className={cn(
                       "text-[11px] font-medium",
-                      step === s.id ? "text-white" : s.id < step ? "text-emerald-400" : "text-zinc-600"
+                      step === s.id
+                        ? "text-white"
+                        : s.id < step
+                          ? "text-emerald-400"
+                          : "text-zinc-600",
                     )}
                   >
                     {s.label}
@@ -585,7 +758,7 @@ export default function NewAgentPage() {
                 <div
                   className={cn(
                     "flex-1 h-px mx-2 transition-all",
-                    s.id < step ? "bg-emerald-500/30" : "bg-white/[0.06]"
+                    s.id < step ? "bg-emerald-500/30" : "bg-white/[0.06]",
                   )}
                 />
               )}
@@ -606,14 +779,20 @@ export default function NewAgentPage() {
           />
         )}
         {step === 3 && <StepPhone form={form} onChange={handleChange} />}
-        {step === 4 && <StepReview form={form} />}
+        {step === 4 && (
+          <StepReview
+            form={form}
+            isLaunching={isLaunching}
+            launchError={launchError}
+          />
+        )}
       </div>
 
       {/* Navigation */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => setStep((s) => Math.max(1, s - 1))}
-          disabled={step === 1}
+          disabled={step === 1 || isLaunching}
           className="flex items-center gap-2 rounded-lg border border-white/[0.06] px-4 py-2 text-[13px] font-medium text-zinc-400 transition-all hover:border-white/[0.1] hover:text-zinc-200 disabled:opacity-30 disabled:pointer-events-none"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -629,19 +808,30 @@ export default function NewAgentPage() {
           {step < 4 ? (
             <button
               onClick={() => setStep((s) => Math.min(4, s + 1))}
-              className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-[13px] font-medium text-white transition-all hover:bg-violet-500"
+              disabled={isLaunching}
+              className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-[13px] font-medium text-white transition-all hover:bg-violet-500 disabled:opacity-50"
             >
               Continue
               <ChevronRight className="h-4 w-4" />
             </button>
           ) : (
-            <a
-              href="/agents"
-              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-emerald-500"
+            <button
+              onClick={handleLaunch}
+              disabled={isLaunching}
+              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Check className="h-4 w-4" />
-              Launch agent
-            </a>
+              {isLaunching ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Launching…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  Launch agent
+                </>
+              )}
+            </button>
           )}
         </div>
       </div>
