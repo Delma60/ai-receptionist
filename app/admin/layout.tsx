@@ -56,7 +56,7 @@ const navGroups = [
     label: "System",
     items: [
       { label: "Feature Flags", href: "/admin/flags", icon: Flag },
-      { label: "Audit Log", href: "/admin/audit", icon: FileText },
+      { label: "Audit Log", href: "/admin/activity", icon: FileText },
       { label: "System Health", href: "/admin/system", icon: Circle },
       { label: "Settings", href: "/admin/settings", icon: Settings },
     ],

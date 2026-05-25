@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Script from "next/script";
 import { useState, useEffect } from "react";
 import {
   Bot,
@@ -172,6 +173,9 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-zinc-950 font-[family-name:var(--font-geist-sans)]">
+      {/* Fix 16: Load Vapi Web SDK */}
+      <Script src="https://cdn.vapi.ai/vapi.js" strategy="afterInteractive" />
+
       {impersonatedId && tenant && (
         <div className="fixed top-0 left-0 right-0 z-[100]">
           <ImpersonateBanner
