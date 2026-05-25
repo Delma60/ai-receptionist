@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ── Types ──────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 interface FAQ {
   id: string;
   question: string;
@@ -36,7 +36,7 @@ interface AgentForm {
   phoneNumber: string;
 }
 
-// ── Steps config ───────────────────────────────────────
+// ── Steps config ────────────────────────────────────────────────────────────────
 const STEPS = [
   { id: 1, label: "Identity", description: "Name & personality" },
   { id: 2, label: "Knowledge", description: "FAQs & info" },
@@ -44,7 +44,7 @@ const STEPS = [
   { id: 4, label: "Review", description: "Go live" },
 ];
 
-// ── Tone options ───────────────────────────────────────
+// ── Tone options ────────────────────────────────────────────────────────────────
 const TONES = [
   {
     value: "friendly",
@@ -91,7 +91,7 @@ const PHONE_NUMBERS = [
   { number: "+1 (408) 555-0171", area: "San Jose, CA" },
 ];
 
-// ── Step components ────────────────────────────────────
+// ── Step: Identity ──────────────────────────────────────────────────────────────
 function StepIdentity({
   form,
   onChange,
@@ -225,7 +225,6 @@ function StepIdentity({
         </select>
       </div>
 
-      {/* Preview card */}
       {(form.name || form.business) && (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
           <p className="text-[11px] font-medium uppercase tracking-widest text-zinc-600 mb-3">
@@ -269,6 +268,7 @@ function toneColor(tone: string) {
   return "text-emerald-400";
 }
 
+// ── Step: Knowledge ─────────────────────────────────────────────────────────────
 function StepKnowledge({
   form,
   onAddFAQ,
@@ -358,6 +358,7 @@ function StepKnowledge({
   );
 }
 
+// ── Step: Phone ─────────────────────────────────────────────────────────────────
 function StepPhone({
   form,
   onChange,
@@ -461,6 +462,7 @@ function StepPhone({
   );
 }
 
+// ── Step: Review ────────────────────────────────────────────────────────────────
 function StepReview({
   form,
   isLaunching,
@@ -479,8 +481,8 @@ function StepReview({
     { label: "Phone number assigned", ok: !!form.phoneNumber },
   ];
 
-  const allGood = checks.every((c) => c.ok);
   const readyCount = checks.filter((c) => c.ok).length;
+  const allGood = readyCount === checks.length;
 
   return (
     <div className="space-y-6">
@@ -491,7 +493,6 @@ function StepReview({
         </p>
       </div>
 
-      {/* Agent preview */}
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 text-white font-semibold text-lg shadow-lg shadow-violet-900/40">
@@ -614,7 +615,7 @@ function StepReview({
   );
 }
 
-// ── Main Wizard ────────────────────────────────────────
+// ── Main Wizard ─────────────────────────────────────────────────────────────────
 export default function NewAgentPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -659,18 +660,17 @@ export default function NewAgentPage() {
     }));
   }
 
-  /**
-   * Called when the user clicks "Launch agent" on the review step.
-   * POSTs to /api/agents which creates the Vapi assistant and persists to Firestore.
-   */
   async function handleLaunch() {
     setIsLaunching(true);
     setLaunchError(null);
 
     try {
+      // credentials: "include" ensures the session cookie is sent along with
+      // the request — critical for server-side auth in Next.js App Router.
       const res = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(form),
       });
 
@@ -686,6 +686,7 @@ export default function NewAgentPage() {
         await fetch("/api/phone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ agentId, phoneNumber: form.phoneNumber }),
         }).catch((err) => {
           // Phone provisioning failure is non-fatal — log and continue.
@@ -693,7 +694,6 @@ export default function NewAgentPage() {
         });
       }
 
-      // Navigate to the new agent's detail page.
       router.push(`/agents/${agentId}`);
     } catch (err: any) {
       setLaunchError(err.message || "An unexpected error occurred.");

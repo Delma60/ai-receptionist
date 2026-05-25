@@ -38,6 +38,7 @@ export async function createVapiAssistant(agent: {
   language: string;
   faqs: { question: string; answer: string }[];
   phoneNumber?: string;
+  businessName?: string;
 }) {
   const faqText =
     agent.faqs.length > 0

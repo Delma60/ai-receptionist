@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { auth } from "@/lib/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { Mail, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
