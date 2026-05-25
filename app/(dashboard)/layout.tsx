@@ -1,4 +1,7 @@
 "use client";
+// app/(dashboard)/layout.tsx
+// FIX 19: Impersonation state is now fetched from GET /api/admin/impersonate
+// (server reads the httpOnly cookie) instead of reading document.cookie directly.
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -34,37 +37,12 @@ import {
 import { UsageBanner } from "@/components/billing/usage-banner";
 
 const navItems = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Agents",
-    href: "/agents",
-    icon: Bot,
-  },
-  {
-    label: "Calls",
-    href: "/calls",
-    icon: PhoneCall,
-    badge: 3,
-  },
-  {
-    label: "Teams",
-    href: "/teams",
-    icon: Users,
-  },
-  {
-    label: "Integrations",
-    href: "/integrations",
-    icon: Puzzle,
-  },
-  {
-    label: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Agents", href: "/agents", icon: Bot },
+  { label: "Calls", href: "/calls", icon: PhoneCall, badge: 3 },
+  { label: "Teams", href: "/teams", icon: Users },
+  { label: "Integrations", href: "/integrations", icon: Puzzle },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 function StatusDot({ active }: { active: boolean }) {
@@ -95,6 +73,8 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [tenant, setTenant] = useState<any>(null);
   const [activeAgent, setActiveAgent] = useState<any>(null);
+  // FIX 19: impersonatedId is fetched via API (server reads httpOnly cookie),
+  // not via document.cookie which is now inaccessible for httpOnly cookies.
   const [impersonatedId, setImpersonatedId] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -106,14 +86,25 @@ export default function DashboardLayout({
     return () => unsubscribe();
   }, []);
 
+  // FIX 19: Fetch impersonation state from the server (reads httpOnly cookie)
   useEffect(() => {
-    const cookieValue = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("impersonated_tenant_id="))
-      ?.split("=")[1];
-
-    setImpersonatedId(cookieValue || null);
-  }, [pathname]);
+    async function fetchImpersonation() {
+      try {
+        const res = await fetch("/api/admin/impersonate", {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const { tenantId } = await res.json();
+          setImpersonatedId(tenantId ?? null);
+        } else {
+          setImpersonatedId(null);
+        }
+      } catch {
+        setImpersonatedId(null);
+      }
+    }
+    fetchImpersonation();
+  }, [pathname]); // Re-check on navigation
 
   useEffect(() => {
     const effectiveId = impersonatedId || user?.uid;
@@ -173,7 +164,6 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-zinc-950 font-[family-name:var(--font-geist-sans)]">
-      {/* Fix 16: Load Vapi Web SDK */}
       <Script src="https://cdn.vapi.ai/vapi.js" strategy="afterInteractive" />
 
       {impersonatedId && tenant && (
@@ -233,7 +223,6 @@ export default function DashboardLayout({
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        {/* Subtle gradient stripe at top */}
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
 
         {/* Logo */}
@@ -302,11 +291,9 @@ export default function DashboardLayout({
                 )}
                 title={collapsed ? label : undefined}
               >
-                {/* Active indicator bar */}
                 {active && (
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-violet-500" />
                 )}
-
                 <Icon
                   className={cn(
                     "h-4 w-4 shrink-0 transition-colors",
@@ -315,7 +302,6 @@ export default function DashboardLayout({
                       : "text-zinc-500 group-hover:text-zinc-300",
                   )}
                 />
-
                 {!collapsed && (
                   <>
                     <span className="flex-1 font-medium">{label}</span>
@@ -326,8 +312,6 @@ export default function DashboardLayout({
                     )}
                   </>
                 )}
-
-                {/* Collapsed badge dot */}
                 {collapsed && badge && (
                   <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-violet-500" />
                 )}
@@ -336,9 +320,6 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        {/* Divider + Usage */}
-        {/* {!collapsed && (
-        )} */}
         <UsageBanner
           minutesLimit={tenant?.minutesLimit || 500}
           minutesUsed={tenant?.minutesUsed || 0}
@@ -347,7 +328,6 @@ export default function DashboardLayout({
 
         {/* Bottom: User + collapse */}
         <div className="border-t border-white/[0.06]">
-          {/* User row */}
           <div
             className={cn(
               "flex items-center gap-3 px-3 py-3",
@@ -377,7 +357,6 @@ export default function DashboardLayout({
             )}
           </div>
 
-          {/* Collapse toggle */}
           <button
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
