@@ -28,12 +28,19 @@ const PLAN_PRICE: Record<string, number> = {
   pro: 349,
 };
 
+interface ChartPoint {
+  date: string;
+  amount: number;
+  fullDate: string;
+}
+
 interface RevenueStats {
   mrr: number;
   netRevenue: number;
   activeSubs: number;
   planBreakdown: { starter: number; growth: number; pro: number };
   avgRevenuePerUser: number;
+  trendData: ChartPoint[];
 }
 
 export default function AdminRevenuePage() {
@@ -45,10 +52,64 @@ export default function AdminRevenuePage() {
     activeSubs: 0,
     planBreakdown: { starter: 0, growth: 0, pro: 0 },
     avgRevenuePerUser: 0,
+    trendData: [],
   });
+
+  const RevenueTrendChart = ({ data }: { data: ChartPoint[] }) => {
+    const maxAmount = Math.max(...data.map((d) => d.amount), 1);
+    return (
+      <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-5">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-[15px] font-semibold text-white">Daily Revenue Trend</h2>
+            <p className="mt-0.5 text-[12px] text-zinc-500">Net revenue from paid invoices · Last 30 days</p>
+          </div>
+        </div>
+        <div className="flex items-end gap-1 h-40">
+          {data.map((d, i) => {
+            const h = d.amount === 0 ? 2 : Math.round((d.amount / maxAmount) * 140);
+            return (
+              <div key={i} className="group relative flex-1 flex flex-col items-center gap-2">
+                <div className="pointer-events-none absolute -top-10 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-zinc-950 px-2.5 py-1.5 text-[10px] text-zinc-200 opacity-0 transition-opacity group-hover:opacity-100 border border-white/10 shadow-2xl">
+                  <p className="font-semibold text-white">{d.date}</p>
+                  <p className="text-emerald-400 font-mono">${d.amount.toLocaleString()}</p>
+                </div>
+                <div 
+                  className={cn(
+                    "w-full rounded-t-sm transition-all duration-300",
+                    d.amount > 0 ? "bg-emerald-500/40 group-hover:bg-emerald-500/80" : "bg-zinc-800/20"
+                  )}
+                  style={{ height: h }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex justify-between text-[10px] text-zinc-600 px-1">
+          <span>{data[0]?.date}</span>
+          <span>{data[Math.floor(data.length / 2)]?.date}</span>
+          <span>{data[data.length - 1]?.date}</span>
+        </div>
+      </div>
+    );
+  };
 
   const fetchRevenueData = async () => {
     try {
+      const dailyMap: Record<string, number> = {};
+      const initialTrend: ChartPoint[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const ds = d.toDateString();
+        dailyMap[ds] = 0;
+        initialTrend.push({
+          date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          fullDate: ds,
+          amount: 0
+        });
+      }
+
       // FIX 8: Real MRR aggregation from live tenant plan data
       const tenantsSnap = await getDocs(collection(db, "tenants"));
       let totalMrr = 0;
@@ -78,6 +139,11 @@ export default function AdminRevenuePage() {
         );
         invoicesSnap.docs.forEach((inv) => {
           totalNetRevenue += inv.data().amount || 0;
+          const data = inv.data();
+          totalNetRevenue += data.amount || 0;
+
+          const dateStr = data.createdAt?.toDate?.().toDateString();
+          if (dateStr && dailyMap[dateStr] !== undefined) dailyMap[dateStr] += data.amount || 0;
         });
       } catch (err) {
         // collectionGroup query may need a Firestore index — fall back to per-tenant aggregation
@@ -98,6 +164,9 @@ export default function AdminRevenuePage() {
                 data.createdAt.toDate() >= thirtyDaysAgo
               ) {
                 totalNetRevenue += data.amount || 0;
+
+                const dateStr = data.createdAt.toDate().toDateString();
+                if (dailyMap[dateStr] !== undefined) dailyMap[dateStr] += data.amount || 0;
               }
             });
           }),
@@ -107,12 +176,18 @@ export default function AdminRevenuePage() {
       const avgRevenuePerUser =
         subsCount > 0 ? Math.round(totalMrr / subsCount) : 0;
 
+      const trendData = initialTrend.map(p => ({
+        ...p,
+        amount: dailyMap[p.fullDate] || 0
+      }));
+
       setStats({
         mrr: totalMrr,
         netRevenue: Math.round(totalNetRevenue),
         activeSubs: subsCount,
         planBreakdown,
         avgRevenuePerUser,
+        trendData,
       });
     } catch (err) {
       console.error("Error fetching revenue data:", err);
@@ -288,6 +363,8 @@ export default function AdminRevenuePage() {
       <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-8 flex items-center justify-center min-h-[200px]">
         <p className="text-zinc-500 text-sm">MRR trend chart coming soon…</p>
       </div>
+      {/* Revenue Trend Chart */}
+      {!loading && stats.trendData.length > 0 && <RevenueTrendChart data={stats.trendData} />}
     </div>
   );
 }

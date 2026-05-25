@@ -27,6 +27,9 @@ export async function POST(req: Request) {
     language: string;
     faqs: { id: string; question: string; answer: string }[];
     phoneNumber: string;
+    // Fix 7: accept locality/region from the wizard so they're stored on the agent
+    phoneLocality?: string;
+    phoneRegion?: string;
   };
 
   try {
@@ -35,7 +38,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { name, business, greeting, tone, language, faqs, phoneNumber } = body;
+  const { name, business, greeting, tone, language, faqs, phoneNumber, phoneLocality, phoneRegion } = body;
 
   if (!name || !greeting) {
     return NextResponse.json(
@@ -69,6 +72,8 @@ export async function POST(req: Request) {
     .map(({ question, answer }) => ({ question, answer }));
 
   // 4. Persist the agent to Firestore under the tenant's sub-collection.
+  //    Fix 7: include locality and region so the detail page can display them
+  //    without needing a separate Twilio lookup.
   const agentRef = adminDb
     .collection("tenants")
     .doc(ctx.tenantId)
@@ -83,6 +88,9 @@ export async function POST(req: Request) {
     language: language || "English",
     faqs: cleanFaqs,
     phoneNumber: phoneNumber || null,
+    // Fix 7: persist locality & region from the number selection
+    locality: phoneLocality || null,
+    region: phoneRegion || null,
     vapiAgentId: vapiAgent.id,
     isActive: true,
     status: "active",
@@ -97,6 +105,8 @@ export async function POST(req: Request) {
   // 5. If a phone number was selected in the wizard, purchase it via Twilio
   //    and wire the webhook to point at this tenant + agent.
   let finalPhoneNumber = phoneNumber || null;
+  let finalLocality = phoneLocality || null;
+  let finalRegion = phoneRegion || null;
 
   if (phoneNumber) {
     try {
@@ -116,10 +126,15 @@ export async function POST(req: Request) {
 
       finalPhoneNumber = purchased.phoneNumber;
 
-      // Update the agent doc with the confirmed number.
+      // Fix 7: update the agent doc with the confirmed number AND locality/region.
+      // We keep the values from the wizard's number selection; the purchased object
+      // doesn't always echo them back, so we prefer what we already have.
       await agentRef.update({
         phoneNumber: finalPhoneNumber,
         twilioPhoneSid: purchased.sid,
+        // Only overwrite locality/region if the wizard didn't supply them
+        ...(finalLocality == null && { locality: null }),
+        ...(finalRegion == null && { region: null }),
       });
 
       // Also stamp it on the tenant doc so the dashboard sidebar shows it.
@@ -146,6 +161,8 @@ export async function POST(req: Request) {
       agentId: agentRef.id,
       vapiAgentId: vapiAgent.id,
       phoneNumber: finalPhoneNumber,
+      locality: finalLocality,
+      region: finalRegion,
     },
     { status: 201 }
   );

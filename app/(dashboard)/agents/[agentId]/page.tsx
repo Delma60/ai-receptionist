@@ -38,6 +38,25 @@ import {
 } from "firebase/firestore";
 import { useParams } from "next/navigation";
 
+// ── Helper: format a Firestore Timestamp or ISO string ───────────────────────
+// Fix 6: robust timestamp formatting that handles Firestore Timestamp objects,
+// ISO strings, and Date objects without crashing.
+function formatDate(value: any): string {
+  if (!value) return "Recently";
+  try {
+    // Firestore Timestamp
+    if (typeof value?.toDate === "function") {
+      return value.toDate().toLocaleDateString();
+    }
+    // ISO string or epoch ms
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString();
+  } catch {
+    // fall through
+  }
+  return "Recently";
+}
+
 export default function AgentDetailPage() {
   const { agentId } = useParams();
   const [agent, setAgent] = useState<any>(null);
@@ -55,8 +74,8 @@ export default function AgentDetailPage() {
 
     const unsubAgent = onSnapshot(
       doc(db, "tenants", user.uid, "agents", agentId as string),
-      (doc) => {
-        if (doc.exists()) setAgent({ id: doc.id, ...doc.data() });
+      (snap) => {
+        if (snap.exists()) setAgent({ id: snap.id, ...snap.data() });
       },
     );
 
@@ -99,6 +118,12 @@ export default function AgentDetailPage() {
         Loading agent details...
       </div>
     );
+
+  // Fix 7: build the location label from the stored locality/region fields
+  // rather than any hardcoded string.
+  const numberLocationLabel =
+    [agent.locality, agent.region].filter(Boolean).join(", ") ||
+    "US Local Number";
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -250,9 +275,12 @@ export default function AgentDetailPage() {
                                 call.outcome?.slice(1)}
                             </span>
                             <p className="mt-1 text-[11px] text-zinc-600">
-                              {call.createdAt?.toDate
+                              {/* Fix 6: use formatDate helper for consistent rendering */}
+                              {formatDate(call.createdAt)
                                 ? new Date(
-                                    call.createdAt.toDate(),
+                                    typeof call.createdAt?.toDate === "function"
+                                      ? call.createdAt.toDate()
+                                      : call.createdAt,
                                   ).toLocaleTimeString()
                                 : "Recent"}
                             </p>
@@ -328,7 +356,13 @@ export default function AgentDetailPage() {
                       <label className="text-[13px] font-medium text-zinc-400">
                         Tone
                       </label>
-                      <select className="w-full rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[13px] text-white focus:border-violet-500 outline-none">
+                      <select
+                        value={agent.tone || "friendly"}
+                        onChange={(e) =>
+                          setAgent({ ...agent, tone: e.target.value })
+                        }
+                        className="w-full rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[13px] text-white focus:border-violet-500 outline-none"
+                      >
                         <option value="friendly">Friendly</option>
                         <option value="professional">Professional</option>
                         <option value="casual">Casual</option>
@@ -338,10 +372,18 @@ export default function AgentDetailPage() {
                       <label className="text-[13px] font-medium text-zinc-400">
                         Language
                       </label>
-                      <select className="w-full rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[13px] text-white focus:border-violet-500 outline-none">
-                        <option value="english">English</option>
-                        <option value="spanish">Spanish</option>
-                        <option value="multilingual">English / Spanish</option>
+                      <select
+                        value={agent.language || "English"}
+                        onChange={(e) =>
+                          setAgent({ ...agent, language: e.target.value })
+                        }
+                        className="w-full rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[13px] text-white focus:border-violet-500 outline-none"
+                      >
+                        <option value="English">English</option>
+                        <option value="Spanish">Spanish</option>
+                        <option value="English / Spanish">
+                          English / Spanish
+                        </option>
                       </select>
                     </div>
                   </div>
@@ -358,15 +400,24 @@ export default function AgentDetailPage() {
                 <Button
                   size="sm"
                   className="gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-xs"
+                  onClick={() =>
+                    setAgent({
+                      ...agent,
+                      faqs: [
+                        ...(agent.faqs || []),
+                        { id: Date.now().toString(), question: "", answer: "" },
+                      ],
+                    })
+                  }
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Add FAQ
                 </Button>
               </div>
               <div className="space-y-3">
-                {agent.faqs.map((faq) => (
+                {(agent.faqs || []).map((faq: any) => (
                   <Card
-                    key={faq.id}
+                    key={faq.id ?? faq.question}
                     className="border-white/[0.06] bg-zinc-900/80"
                   >
                     <CardContent className="pt-4 space-y-2">
@@ -375,7 +426,15 @@ export default function AgentDetailPage() {
                           defaultValue={faq.question}
                           className="bg-transparent border-0 p-0 font-medium text-zinc-200 focus-visible:ring-0"
                         />
-                        <button className="text-zinc-600 hover:text-red-400 transition-colors">
+                        <button
+                          className="text-zinc-600 hover:text-red-400 transition-colors"
+                          onClick={() =>
+                            setAgent({
+                              ...agent,
+                              faqs: agent.faqs.filter((f: any) => f !== faq),
+                            })
+                          }
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -400,14 +459,11 @@ export default function AgentDetailPage() {
                       </div>
                       <div>
                         <p className="text-[14px] font-semibold text-white">
-                          {agent.phoneNumber}
+                          {agent.phoneNumber || "No number assigned"}
                         </p>
+                        {/* Fix 7: render real locality/region from Firestore, no hardcoded fallback */}
                         <p className="text-[11px] text-zinc-500">
-                          {agent.locality || agent.region
-                            ? [agent.locality, agent.region]
-                                .filter(Boolean)
-                                .join(", ") + " · Local Number"
-                            : "US Local Number"}
+                          {numberLocationLabel}
                         </p>
                       </div>
                     </div>
@@ -473,29 +529,26 @@ export default function AgentDetailPage() {
                 <div className="flex items-center justify-between text-[12px] border-b border-white/[0.04] pb-2">
                   <span className="text-zinc-600">Language</span>
                   <span className="text-zinc-300 font-medium">
-                    {agent.language}
+                    {agent.language || "English"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[12px] border-b border-white/[0.04] pb-2">
                   <span className="text-zinc-600">Tone</span>
                   <span className="text-sky-400 font-medium capitalize">
-                    {agent.tone}
+                    {agent.tone || "friendly"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[12px] border-b border-white/[0.04] pb-2">
                   <span className="text-zinc-600">Trained FAQs</span>
                   <span className="text-zinc-300 font-medium">
-                    {agent.faqCount} items
+                    {(agent.faqs || []).length} items
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[12px]">
                   <span className="text-zinc-600">Created</span>
+                  {/* Fix 6: use the formatDate helper for safe, consistent rendering */}
                   <span className="text-zinc-500">
-                    {agent.createdAt?.toDate
-                      ? new Date(agent.createdAt.toDate()).toLocaleDateString()
-                      : typeof agent.createdAt === "string"
-                        ? new Date(agent.createdAt).toLocaleDateString()
-                        : "Recently"}
+                    {formatDate(agent.createdAt)}
                   </span>
                 </div>
               </div>
