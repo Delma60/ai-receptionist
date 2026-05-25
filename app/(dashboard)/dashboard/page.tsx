@@ -449,7 +449,17 @@ export default function DashboardPage() {
               ))}
             </div>
             <div className="mt-4 flex gap-2">
-              <button className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200">
+              <button 
+                onClick={async () => {
+                  if (!activeAgent) return;
+                  // Placeholder for Vapi Web SDK integration
+                  alert(`Initiating web call for ${activeAgent.name}...`);
+                  if ((window as any).vapi) {
+                    (window as any).vapi.start(activeAgent.id);
+                  }
+                }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
+              >
                 <Play className="h-3 w-3" />
                 Test call
               </button>

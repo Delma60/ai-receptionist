@@ -640,19 +640,35 @@ export default function SettingsPage() {
                   Secret API Key
                 </label>
                 <div className="flex gap-2">
-                  <Input
-                    type={showApiKey ? "text" : "password"}
-                    readOnly
-                    value={tenant.apiKey || "sk_live_••••••••••••••••"}
-                    className="bg-white/[0.03] border-white/[0.08] font-mono text-xs"
-                  />
-                  <Button
-                    variant="outline"
-                    className="border-white/[0.06] bg-zinc-900 shrink-0"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                  >
-                    {showApiKey ? "Hide" : "Reveal"}
-                  </Button>
+                  {tenant.apiKey ? (
+                    <>
+                      <Input
+                        type={showApiKey ? "text" : "password"}
+                        readOnly
+                        value={tenant.apiKey}
+                        className="bg-white/[0.03] border-white/[0.08] font-mono text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        className="border-white/[0.06] bg-zinc-900 shrink-0"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                      >
+                        {showApiKey ? "Hide" : "Reveal"}
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="flex flex-1 items-center justify-between rounded-lg border border-dashed border-white/[0.08] px-3 py-2">
+                      <span className="text-[12px] text-zinc-600 italic">No API key generated yet</span>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-7 text-[11px] text-violet-400 hover:text-violet-300"
+                        onClick={() => {/* Logic to call key generation utility */}}
+                      >
+                        Generate Key
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <p className="text-[11px] text-zinc-500 mt-1">
                   Never expose this in client-side code.

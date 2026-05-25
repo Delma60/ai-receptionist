@@ -114,11 +114,18 @@ function AgentCard({
     setIsTesting(true);
     setMenuOpen(false);
     try {
-      // In a real deployment this would open a Vapi web-call widget.
-      // For now we show an alert with the agent's Vapi ID so it's testable.
-      alert(
-        `Test call initiated!\n\nYou can test this agent by calling the provisioned phone number, or use the Vapi dashboard to test assistant ID linked to "${agent.name}".`,
-      );
+      // Logic to initiate Vapi Web SDK call
+      // Assuming Vapi is initialized globally or via a hook in a parent provider
+      const res = await fetch(`/api/agents/${agent.id}/web-token`);
+      const { token } = await res.json();
+      
+      if (token && (window as any).vapi) {
+        (window as any).vapi.start(token);
+      } else {
+        alert(`Agent ID: ${agent.id}\nWeb calling is being initialized. Use the provisioned number: ${agent.phoneNumber || 'N/A'}`);
+      }
+    } catch (err) {
+      console.error("Failed to start web call", err);
     } finally {
       setIsTesting(false);
     }

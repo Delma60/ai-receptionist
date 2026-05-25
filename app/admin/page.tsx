@@ -37,6 +37,12 @@ interface PlatformMetrics {
   mrr: number;
 }
 
+interface ServiceHealth {
+  firebase: boolean;
+  vapi: boolean | null;
+  twilio: boolean | null;
+}
+
 interface TenantRow {
   id: string;
   name: string;
@@ -115,6 +121,11 @@ export default function AdminOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [health, setHealth] = useState<ServiceHealth>({
+    firebase: true,
+    vapi: null,
+    twilio: null,
+  });
 
   const [metrics, setMetrics] = useState<PlatformMetrics>({
     totalTenants: 0,
@@ -128,6 +139,17 @@ export default function AdminOverviewPage() {
 
   async function fetchData() {
     try {
+      // 0. Fetch health status from internal ping routes
+      try {
+        const healthRes = await fetch("/api/health");
+        if (healthRes.ok) {
+          const healthData = await healthRes.json();
+          setHealth(prev => ({ ...prev, vapi: healthData.vapi, twilio: healthData.twilio }));
+        }
+      } catch (e) {
+        console.error("Health check failed", e);
+      }
+
       // 1. Try to get pre-aggregated platform metrics doc first
       const metricsDoc = await getDoc(doc(db, "platform", "metrics"));
 
@@ -456,9 +478,9 @@ export default function AdminOverviewPage() {
         </p>
         <div className="grid gap-2 sm:grid-cols-3">
           {[
-            { name: "Firebase", ok: !error },
-            { name: "Vapi", ok: null },
-            { name: "Twilio", ok: null },
+            { name: "Firebase", ok: health.firebase },
+            { name: "Vapi", ok: health.vapi },
+            { name: "Twilio", ok: health.twilio },
           ].map(({ name, ok }) => (
             <div
               key={name}
