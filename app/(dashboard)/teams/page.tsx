@@ -97,6 +97,19 @@ export default function TeamsPage() {
         status: "invited",
         joinedAt: Timestamp.now(),
       });
+
+      // Send invite email
+      await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: inviteForm.email,
+          subject: `You're invited to join a workspace on AI Receptionist`,
+          text: `Hi ${inviteForm.name || "there"},\n\nYou've been invited to join a workspace on AI Receptionist.\n\nPlease sign up or log in to accept your invite.`,
+          html: `<p>Hi ${inviteForm.name || "there"},</p><p>You've been invited to join a workspace on <b>AI Receptionist</b>.</p><p><a href="${window.location.origin}/sign-up">Click here to join</a> or log in to accept your invite.</p>`,
+        }),
+      });
+
       setIsInviteOpen(false);
       setInviteForm({ name: "", email: "", role: "member" });
     } catch (err) {

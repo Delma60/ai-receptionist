@@ -499,13 +499,10 @@ export default function IntegrationsPage() {
     const path = `integrations.${firestoreKey}`;
     await updateDoc(doc(db, "tenants", user.uid), {
       [path]: {
-        connected: true,
-        status: "connected",
-        connectedAccount:
-          connecting.id === "twilio-sms"
-            ? "+1 (415) 800-2200"
-            : "Connected account",
-        lastSync: "Just now",
+        connected: false,
+        status: "pending-oauth",
+        connectedAccount: null,
+        lastSync: null,
       },
     });
 

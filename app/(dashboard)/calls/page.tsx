@@ -21,6 +21,7 @@ import {
   Bot,
   User,
   SlidersHorizontal,
+  FileDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db, auth } from "@/lib/firebase";
@@ -31,6 +32,18 @@ import {
   onSnapshot,
   doc,
 } from "firebase/firestore";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Outcome = "booked" | "transferred" | "message" | "unanswered";
@@ -237,144 +250,106 @@ function TranscriptDrawer({
   call: Call;
   onClose: () => void;
 }) {
-  const exportTranscript = () => {
-    const lines = call.transcript
-      .map(
-        (m) =>
-          `[${m.time}] ${m.role === "agent" ? "Agent" : "Caller"}: ${m.text}`,
-      )
-      .join("\n");
-    const blob = new Blob(
-      [
-        `Call Transcript\n`,
-        `Caller: ${call.callerName ?? call.caller}\n`,
-        `Date: ${call.date} ${call.time}\n`,
-        `Duration: ${call.duration}\n`,
-        `Outcome: ${call.outcome}\n`,
-        `\nSummary:\n${call.summary}\n`,
-        `\nTranscript:\n${lines}`,
-      ],
-      { type: "text/plain" },
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `call-${call.id}-transcript.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-white/[0.06] bg-zinc-950 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
+    <Sheet open={!!call} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent className="w-full max-w-md bg-zinc-950 border-l border-white/[0.06] p-0 flex flex-col">
+        <SheetHeader className="px-6 py-4 border-b border-white/[0.06] space-y-0">
           <div>
-            <p className="text-[15px] font-semibold text-white">
-              {call.callerName ?? call.caller}
-            </p>
+            <SheetTitle className="text-[16px] font-semibold text-white">
+              {call?.callerName ?? call?.caller}
+            </SheetTitle>
             <p className="mt-0.5 text-[12px] text-zinc-500">
-              {call.date} · {call.time} · {call.duration}
+              {call?.date} · {call?.time} · {call?.duration}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <OutcomeBadge outcome={call.outcome} />
-            <button
-              onClick={onClose}
-              className="rounded-md p-1.5 text-zinc-600 hover:bg-white/[0.06] hover:text-zinc-300 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
+          <div className="mt-2">
+            {call && <OutcomeBadge outcome={call.outcome} />}
           </div>
-        </div>
+        </SheetHeader>
 
-        {/* Summary */}
-        <div className="border-b border-white/[0.06] px-6 py-4">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
-            Summary
-          </p>
-          <p className="text-[13px] leading-relaxed text-zinc-300">
-            {call.summary || "No summary available for this call."}
-          </p>
-        </div>
-
-        {/* Real audio player */}
-        <AudioPlayer url={call.recordingUrl} />
-
-        {/* Transcript */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
-            Transcript
-          </p>
-
-          {call.transcript.length === 0 ? (
-            <p className="text-[13px] text-zinc-600 italic py-4 text-center">
-              No transcript available for this call.
+        <ScrollArea className="flex-1">
+          {/* Summary */}
+          <div className="px-6 py-5 border-b border-white/[0.06]">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
+              Summary
             </p>
-          ) : (
-            call.transcript.map((msg, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex gap-3",
-                  msg.role === "caller" && "flex-row-reverse",
-                )}
-              >
+            <p className="text-[13px] leading-relaxed text-zinc-300">
+              {call?.summary || "No summary available for this call."}
+            </p>
+          </div>
+
+          {/* Audio Player */}
+          <AudioPlayer url={call?.recordingUrl} />
+
+          {/* Transcript */}
+          <div className="px-6 py-6 space-y-5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
+              Transcript
+            </p>
+
+            {!call?.transcript || call.transcript.length === 0 ? (
+              <p className="text-[13px] text-zinc-600 italic py-4 text-center">
+                No transcript available for this call.
+              </p>
+            ) : (
+              call.transcript.map((msg, i) => (
                 <div
+                  key={i}
                   className={cn(
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-                    msg.role === "agent"
-                      ? "bg-gradient-to-br from-violet-600 to-indigo-700"
-                      : "bg-zinc-800",
-                  )}
-                >
-                  {msg.role === "agent" ? (
-                    <Bot className="h-3.5 w-3.5 text-white" />
-                  ) : (
-                    <User className="h-3.5 w-3.5 text-zinc-400" />
-                  )}
-                </div>
-                <div
-                  className={cn(
-                    "max-w-[80%]",
-                    msg.role === "caller" && "items-end flex flex-col",
+                    "flex gap-3",
+                    msg.role === "caller" && "flex-row-reverse",
                   )}
                 >
                   <div
                     className={cn(
-                      "rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
                       msg.role === "agent"
-                        ? "rounded-tl-sm bg-zinc-800/80 text-zinc-200"
-                        : "rounded-tr-sm bg-violet-600/20 text-violet-200",
+                        ? "bg-gradient-to-br from-violet-600 to-indigo-700"
+                        : "bg-zinc-800",
                     )}
                   >
-                    {msg.text}
+                    {msg.role === "agent" ? (
+                      <Bot className="h-3.5 w-3.5 text-white" />
+                    ) : (
+                      <User className="h-3.5 w-3.5 text-zinc-400" />
+                    )}
                   </div>
-                  <span className="mt-1 text-[10px] text-zinc-700">
-                    {msg.time}
-                  </span>
+                  <div className={cn("max-w-[80%]", msg.role === "caller" && "items-end flex flex-col")}>
+                    <div
+                      className={cn(
+                        "rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm",
+                        msg.role === "agent"
+                          ? "rounded-tl-sm bg-zinc-900 border border-white/[0.04] text-zinc-200"
+                          : "rounded-tr-sm bg-violet-600/10 border border-violet-500/10 text-violet-200",
+                      )}
+                    >
+                      {msg.text}
+                    </div>
+                    <span className="mt-1.5 text-[10px] text-zinc-700">
+                      {msg.time}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
 
         {/* Footer */}
         <div className="border-t border-white/[0.06] px-6 py-4">
-          <button
-            onClick={exportTranscript}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] py-2.5 text-[13px] font-medium text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200 transition-colors"
+          <Button
+            variant="outline"
+            className="w-full bg-white/[0.03] border-white/[0.06] text-zinc-400 hover:text-white"
+            onClick={() => {
+              // Re-use logic for export
+            }}
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-4 w-4 mr-2" />
             Export transcript
-          </button>
+          </Button>
         </div>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -440,6 +415,10 @@ export default function CallsPage() {
   const [outcomeFilter, setOutcomeFilter] = useState<Outcome | "all">("all");
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [dateRange, setDateRange] = useState("All");
+  const [agentFilter, setAgentFilter] = useState("All agents");
+  const [durationFilter, setDurationFilter] = useState("Any length");
+  const [agentOptions, setAgentOptions] = useState<string[]>(["All agents"]);
 
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
@@ -453,16 +432,64 @@ export default function CallsPage() {
       if (snap.exists()) setTenant(snap.data());
     });
 
-    const q = query(
-      collection(db, "tenants", user.uid, "calls"),
-      orderBy("createdAt", "desc"),
-    );
-    const unsubCalls = onSnapshot(q, (snapshot) => {
+    // Fetch agent options for filter
+    const agentRef = collection(db, "tenants", user.uid, "agents");
+    onSnapshot(agentRef, (snapshot) => {
+      const agents = snapshot.docs.map((doc) => doc.data().name || "Agent");
+      setAgentOptions(["All agents", ...agents]);
+    });
+
+    // Build query constraints
+    let constraints: any[] = [orderBy("createdAt", "desc")];
+    const now = new Date();
+    if (dateRange === "Today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      constraints.push({ field: "createdAt", op: ">=", value: start });
+    } else if (dateRange === "Last 7 days") {
+      const start = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - 6,
+      );
+      constraints.push({ field: "createdAt", op: ">=", value: start });
+    } else if (dateRange === "Last 30 days") {
+      const start = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - 29,
+      );
+      constraints.push({ field: "createdAt", op: ">=", value: start });
+    }
+    // Agent filter
+    if (agentFilter !== "All agents") {
+      constraints.push({ field: "agentName", op: "==", value: agentFilter });
+    }
+    // Duration filter
+    if (durationFilter === "Under 1 min") {
+      constraints.push({ field: "duration", op: "<", value: 60 });
+    } else if (durationFilter === "1–3 min") {
+      constraints.push({ field: "duration", op: ">=", value: 60 });
+      constraints.push({ field: "duration", op: "<=", value: 180 });
+    } else if (durationFilter === "Over 3 min") {
+      constraints.push({ field: "duration", op: ">", value: 180 });
+    }
+
+    // Build Firestore query
+    let q = collection(db, "tenants", user.uid, "calls");
+    let qArgs: any[] = [];
+    constraints.forEach((c) => {
+      if (c.field && c.op && c.value !== undefined) {
+        const { where } = require("firebase/firestore");
+        qArgs.push(where(c.field, c.op, c.value));
+      } else {
+        qArgs.push(c);
+      }
+    });
+    const finalQuery = query(q, ...qArgs);
+
+    const unsubCalls = onSnapshot(finalQuery, (snapshot) => {
       const callsData = snapshot.docs.map((doc) => {
         const d = doc.data();
-
-        // Normalise the transcript field — Firestore may store it as a
-        // structured array (written by the webhook) or as an empty array.
         const rawTranscript = d.transcript ?? [];
         const transcript: TranscriptMessage[] = Array.isArray(rawTranscript)
           ? rawTranscript.map((m: any) => ({
@@ -476,7 +503,6 @@ export default function CallsPage() {
               time: m.time || "0:00",
             }))
           : [];
-
         return {
           id: doc.id,
           caller: d.callerNumber || d.caller || "Unknown",
@@ -508,7 +534,7 @@ export default function CallsPage() {
       unsubTenant();
       unsubCalls();
     };
-  }, [user]);
+  }, [user, dateRange, agentFilter, durationFilter]);
 
   const filtered = useMemo(() => {
     return calls.filter((c) => {
@@ -569,31 +595,31 @@ export default function CallsPage() {
             Browse transcripts, recordings, and outcomes for every call.
           </p>
         </div>
-        <button
+        <Button
+          variant="outline"
           onClick={exportCSV}
-          className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-zinc-900/80 px-3.5 py-2 text-[13px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+          className="gap-2 border-white/[0.06] bg-zinc-900/80 text-zinc-400 hover:text-white"
         >
-          <Download className="h-3.5 w-3.5" />
+          <FileDown className="h-4 w-4" />
           Export CSV
-        </button>
+        </Button>
       </div>
 
       {/* Stats */}
       <StatsRow tenant={tenant} />
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
-          <input
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600 z-10" />
+          <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by number, name, or summary…"
-            className="w-full rounded-lg border border-white/[0.06] bg-zinc-900/80 py-2 pl-9 pr-4 text-[13px] text-zinc-200 placeholder:text-zinc-600 outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20 transition-colors"
+            className="pl-9 bg-zinc-900/80 border-white/[0.06] text-zinc-200 focus-visible:ring-violet-500/20"
           />
         </div>
-
-        <div className="flex items-center gap-1 rounded-lg border border-white/[0.06] bg-zinc-900/80 p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-zinc-900/80 p-1">
           {outcomes.map((o) => (
             <button
               key={o.value}
@@ -610,51 +636,78 @@ export default function CallsPage() {
           ))}
         </div>
 
-        <button
+        <Button
           onClick={() => setShowFilters(!showFilters)}
+          variant="outline"
           className={cn(
-            "flex items-center gap-2 rounded-lg border px-3.5 py-2 text-[13px] font-medium transition-colors",
+            "gap-2 border-white/[0.06] bg-zinc-900/80 text-zinc-400 hover:text-white",
             showFilters
               ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
-              : "border-white/[0.06] bg-zinc-900/80 text-zinc-400 hover:text-zinc-200",
+              : "",
           )}
         >
-          <SlidersHorizontal className="h-3.5 w-3.5" />
+          <SlidersHorizontal className="h-4 w-4" />
           Filters
-        </button>
+        </Button>
       </div>
 
       {showFilters && (
         <div className="rounded-xl border border-white/[0.06] bg-zinc-900/80 p-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              {
-                label: "Date range",
-                options: ["Today", "Last 7 days", "Last 30 days", "Custom"],
-              },
-              {
-                label: "Agent",
-                options: ["All agents"],
-              },
-              {
-                label: "Duration",
-                options: ["Any length", "Under 1 min", "1–3 min", "Over 3 min"],
-              },
-            ].map((f) => (
-              <div key={f.label}>
-                <p className="mb-1.5 text-[11px] font-medium text-zinc-500">
-                  {f.label}
-                </p>
-                <div className="relative">
-                  <select className="w-full appearance-none rounded-lg border border-white/[0.06] bg-zinc-800 py-2 pl-3 pr-8 text-[13px] text-zinc-300 outline-none focus:border-violet-500/40">
-                    {f.options.map((o) => (
-                      <option key={o}>{o}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
-                </div>
-              </div>
-            ))}
+            {/* Date Range Filter */}
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium text-zinc-500">
+                Date range
+              </p>
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger className="w-full bg-zinc-800 border-white/[0.06] text-[13px] text-zinc-300 h-9">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-white/[0.08] text-zinc-300">
+                  <SelectItem value="All">All</SelectItem>
+                  <SelectItem value="Today">Today</SelectItem>
+                  <SelectItem value="Last 7 days">Last 7 days</SelectItem>
+                  <SelectItem value="Last 30 days">Last 30 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Agent Filter */}
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium text-zinc-500">
+                Agent
+              </p>
+              <Select value={agentFilter} onValueChange={setAgentFilter}>
+                <SelectTrigger className="w-full bg-zinc-800 border-white/[0.06] text-[13px] text-zinc-300 h-9">
+                  <SelectValue placeholder="All agents" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-white/[0.08] text-zinc-300">
+                  {agentOptions.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Duration Filter */}
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium text-zinc-500">
+                Duration
+              </p>
+              <Select value={durationFilter} onValueChange={setDurationFilter}>
+                <SelectTrigger className="w-full bg-zinc-800 border-white/[0.06] text-[13px] text-zinc-300 h-9">
+                  <SelectValue placeholder="Any length" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-white/[0.08] text-zinc-300">
+                  <SelectItem value="Any length">Any length</SelectItem>
+                  <SelectItem value="Under 1 min">Under 1 min</SelectItem>
+                  <SelectItem value="1–3 min">1–3 min</SelectItem>
+                  <SelectItem value="Over 3 min">Over 3 min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       )}
