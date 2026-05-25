@@ -155,4 +155,6 @@ export interface Integration {
   createdAt?: string;
   updatedAt?: string;
   published?: boolean;
+  oauthUrl?: string;
+  icon?: React.ReactNode;
 }

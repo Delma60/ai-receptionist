@@ -410,7 +410,9 @@ export default function IntegrationsPage() {
   const [availableIntegrations, setAvailableIntegrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string>("all");
-  const [connecting, setConnecting] = useState<Integration | null>(null);
+  const [connecting, setConnecting] = useState<
+    (Integration & { icon: React.ReactNode }) | null
+  >(null);
 
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged((u) => setUser(u));
@@ -451,6 +453,7 @@ export default function IntegrationsPage() {
     );
     const dynamic = tenant?.integrations?.[firestoreKey];
 
+    // Add icon and oauthUrl to satisfy type
     return {
       ...item,
       icon: (
@@ -459,6 +462,7 @@ export default function IntegrationsPage() {
           className={cn("h-5 w-5", item.iconColor)}
         />
       ),
+      oauthUrl: item.oauthUrl || undefined,
       status: dynamic
         ? (dynamic.status as IntegrationStatus) ||
           (dynamic.connected ? "connected" : "disconnected")
@@ -487,7 +491,7 @@ export default function IntegrationsPage() {
 
   const handleConnect = (id: string) => {
     const integration = items.find((i) => i.id === id);
-    if (integration) setConnecting(integration);
+    if (integration) setConnecting({ ...integration, icon: integration.icon });
   };
 
   const handleConnectConfirm = async () => {
@@ -497,14 +501,18 @@ export default function IntegrationsPage() {
       g[1].toUpperCase(),
     );
     const path = `integrations.${firestoreKey}`;
+    // Simulate OAuth redirect for integrations that require it
+    if (connecting?.oauthUrl) {
+      window.location.href = connecting.oauthUrl + `?tenant=${user.uid}`;
+      return;
+    }
     await updateDoc(doc(db, "tenants", user.uid), {
       [path]: {
         connected: true,
-        status: "connected",
-        connectedAccount:
-          connecting.id === "twilio-sms"
-            ? "+1 (415) 800-2200"
-            : "Connected account",
+        status: connecting?.oauthUrl ? "pending" : "connected",
+        connectedAccount: connecting?.oauthUrl
+          ? "Pending OAuth"
+          : "Connected account",
         lastSync: "Just now",
       },
     });
