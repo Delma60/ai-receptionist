@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Shield, ChevronDown, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 
 interface Role {
   id: string;
@@ -11,12 +11,12 @@ interface Role {
   description: string;
 }
 
-export function RoleAssignmentPicker({ 
-  currentRoleId, 
-  onAssign 
-}: { 
-  currentRoleId?: string; 
-  onAssign: (roleId: string) => Promise<void> 
+export function RoleAssignmentPicker({
+  currentRoleId,
+  onAssign,
+}: {
+  currentRoleId?: string;
+  onAssign: (roleId: string) => Promise<void>;
 }) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,8 +25,8 @@ export function RoleAssignmentPicker({
 
   useEffect(() => {
     fetch("/api/admin/roles")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setRoles(data);
         setLoading(false);
       });
@@ -42,7 +42,10 @@ export function RoleAssignmentPicker({
     }
   };
 
-  if (loading) return <div className="h-10 w-full animate-pulse bg-zinc-900 rounded-lg border border-white/[0.06]" />;
+  if (loading)
+    return (
+      <div className="h-10 w-full animate-pulse bg-zinc-900 rounded-lg border border-white/[0.06]" />
+    );
 
   return (
     <div className="space-y-3">
@@ -57,9 +60,9 @@ export function RoleAssignmentPicker({
             disabled={updating}
             className={cn(
               "flex items-center justify-between p-3 rounded-xl border transition-all text-left",
-              selected === role.id 
-                ? "bg-emerald-500/5 border-emerald-500/30 ring-1 ring-emerald-500/20" 
-                : "bg-zinc-950 border-white/[0.06] hover:border-white/[0.12]"
+              selected === role.id
+                ? "bg-emerald-500/5 border-emerald-500/30 ring-1 ring-emerald-500/20"
+                : "bg-zinc-950 border-white/[0.06] hover:border-white/[0.12]",
             )}
           >
             <div className="space-y-0.5">
