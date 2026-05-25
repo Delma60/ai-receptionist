@@ -87,6 +87,8 @@ export default function DashboardLayout({
   const [tenant, setTenant] = useState<any>(null);
   const [activeAgent, setActiveAgent] = useState<any>(null);
   const [impersonatedId, setImpersonatedId] = useState<string | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -138,10 +140,16 @@ export default function DashboardLayout({
     }
   }
 
-  async function handleLogout() {
-    await signOut(auth);
-    await fetch("/api/auth/session", { method: "DELETE" });
-    router.push("/sign-in");
+  async function performLogout() {
+    setIsLoggingOut(true);
+    try {
+      await signOut(auth);
+      await fetch("/api/auth/session", { method: "DELETE" });
+      router.push("/sign-in");
+    } catch (err) {
+      console.error("Logout failed", err);
+      setIsLoggingOut(false);
+    }
   }
 
   return (
@@ -149,6 +157,34 @@ export default function DashboardLayout({
       {impersonatedId && tenant && (
         <div className="fixed top-0 left-0 right-0 z-[100]">
           <ImpersonateBanner tenantName={tenant.name} onExit={handleExitImpersonation} />
+        </div>
+      )}
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
+          <div className="relative w-full max-w-sm rounded-xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">Sign out</h3>
+            <p className="mt-2 text-sm text-zinc-400">
+              Are you sure you want to sign out of your account?
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={performLogout}
+                disabled={isLoggingOut}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 transition-colors disabled:opacity-50"
+              >
+                {isLoggingOut ? "Signing out..." : "Sign out"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -318,7 +354,7 @@ export default function DashboardLayout({
             )}
             {!collapsed && (
               <button
-                onClick={handleLogout}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="rounded-md p-1 text-zinc-600 hover:text-zinc-300 transition-colors"
               >
                 <LogOut className="h-3.5 w-3.5" />

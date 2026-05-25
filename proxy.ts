@@ -19,6 +19,7 @@ function isPublicPath(pathname: string): boolean {
 
 function getRole(req: NextRequest): PlatformRole | null {
   const role = req.cookies.get("user-role")?.value;
+  console.log("User role from cookie:", role);
   if (role === "admin" || role === "support" || role === "user") return role;
   return null;
 }
