@@ -257,8 +257,8 @@ function StepKnowledge({
       </div>
 
       <div className="space-y-3">
-        {form.faqs.map((faq, i) => (
-          <div key={faq.id} className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+        {(form.faqs || []).map((faq, i) => (
+          <div key={i} className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-600">Q&A #{i + 1}</span>
               <button

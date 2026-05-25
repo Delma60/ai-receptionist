@@ -11,6 +11,7 @@ export default function AdminRevenuePage() {
   const [loading, setLoading] = useState(true);
   const [mrr, setMrr] = useState(0);
   const [activeSubs, setActiveSubs] = useState(0);
+  const [netRevenue, setNetRevenue] = useState(0);
 
   useEffect(() => {
     const fetchRevenueData = async () => {
@@ -18,26 +19,49 @@ export default function AdminRevenuePage() {
         const snap = await getDocs(collection(db, "tenants"));
         let totalMrr = 0;
         let subsCount = 0;
+        let totalNetRevenue = 0;
+        const now = new Date();
+        const thirtyDaysAgo = new Date(
+          now.getTime() - 30 * 24 * 60 * 60 * 1000,
+        );
 
-        snap.docs.forEach((d) => {
-          const data = d.data();
-          subsCount++;
-          
-          const plan = data.plan || "starter";
-          if (plan === "pro") totalMrr += 349;
-          else if (plan === "growth") totalMrr += 149;
-          else if (plan === "starter") totalMrr += 49;
-        });
+        // For each tenant, aggregate invoices
+        await Promise.all(
+          snap.docs.map(async (d) => {
+            const data = d.data();
+            subsCount++;
+            const plan = data.plan || "starter";
+            if (plan === "pro") totalMrr += 349;
+            else if (plan === "growth") totalMrr += 149;
+            else if (plan === "starter") totalMrr += 49;
+
+            // Aggregate paid invoices in last 30 days
+            const invoicesSnap = await getDocs(
+              collection(db, "tenants", d.id, "invoices"),
+            );
+            invoicesSnap.forEach((inv) => {
+              const invData = inv.data();
+              if (
+                invData.status === "paid" &&
+                invData.createdAt &&
+                invData.createdAt.toDate &&
+                invData.createdAt.toDate() >= thirtyDaysAgo
+              ) {
+                totalNetRevenue += invData.amount || 0;
+              }
+            });
+          }),
+        );
 
         setMrr(totalMrr);
         setActiveSubs(subsCount);
+        setNetRevenue(totalNetRevenue);
         setLoading(false);
       } catch (err) {
         console.error("Error fetching revenue data:", err);
         setLoading(false);
       }
     };
-
     fetchRevenueData();
   }, []);
 
@@ -78,7 +102,7 @@ export default function AdminRevenuePage() {
             },
             {
               label: "Net Revenue",
-              value: "$12,840", // Hardcoded in original, can be made dynamic later
+              value: `$${netRevenue.toLocaleString()}`,
               icon: DollarSign,
               color: "text-violet-400",
               sub: "Last 30 days",
@@ -107,10 +131,12 @@ export default function AdminRevenuePage() {
           ))}
         </div>
       )}
-      
+
       {/* Placeholder for future revenue charts */}
       <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-8 flex items-center justify-center min-h-[300px]">
-         <p className="text-zinc-500 text-sm">Revenue metrics visualization coming soon...</p>
+        <p className="text-zinc-500 text-sm">
+          Revenue metrics visualization coming soon...
+        </p>
       </div>
     </div>
   );

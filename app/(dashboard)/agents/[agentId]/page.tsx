@@ -26,7 +26,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/Button";
 import { db, auth } from "@/lib/firebase";
-import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, limit } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 import { useParams } from "next/navigation";
 
 export default function AgentDetailPage() {
@@ -44,28 +53,39 @@ export default function AgentDetailPage() {
   useEffect(() => {
     if (!user || !agentId) return;
 
-    const unsubAgent = onSnapshot(doc(db, "tenants", user.uid, "agents", agentId as string), (doc) => {
-      if (doc.exists()) setAgent({ id: doc.id, ...doc.data() });
-    });
-
-    const unsubCalls = onSnapshot(
-      query(collection(db, "tenants", user.uid, "calls"), 
-      where("agentId", "==", agentId),
-      orderBy("createdAt", "desc"), 
-      limit(5)), 
-      (snapshot) => {
-        setRecentCalls(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      }
+    const unsubAgent = onSnapshot(
+      doc(db, "tenants", user.uid, "agents", agentId as string),
+      (doc) => {
+        if (doc.exists()) setAgent({ id: doc.id, ...doc.data() });
+      },
     );
 
-    return () => { unsubAgent(); unsubCalls(); };
+    const unsubCalls = onSnapshot(
+      query(
+        collection(db, "tenants", user.uid, "calls"),
+        where("agentId", "==", agentId),
+        orderBy("createdAt", "desc"),
+        limit(5),
+      ),
+      (snapshot) => {
+        setRecentCalls(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+    );
+
+    return () => {
+      unsubAgent();
+      unsubCalls();
+    };
   }, [user, agentId]);
 
   const handleSave = async () => {
     if (!user || !agentId) return;
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, "tenants", user.uid, "agents", agentId as string), agent);
+      await updateDoc(
+        doc(db, "tenants", user.uid, "agents", agentId as string),
+        agent,
+      );
     } catch (e) {
       console.error("Error saving agent:", e);
     } finally {
@@ -73,7 +93,12 @@ export default function AgentDetailPage() {
     }
   };
 
-  if (!agent) return <div className="flex h-screen items-center justify-center text-zinc-500">Loading agent details...</div>;
+  if (!agent)
+    return (
+      <div className="flex h-screen items-center justify-center text-zinc-500">
+        Loading agent details...
+      </div>
+    );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -199,35 +224,45 @@ export default function AgentDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentCalls.length > 0 ? recentCalls.map((call) => (
-                      <div
-                        key={call.id}
-                        className="flex items-center justify-between py-3 border-b border-white/[0.04] last:border-0"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center">
-                            <Phone className="h-4 w-4 text-zinc-500" />
+                    {recentCalls.length > 0 ? (
+                      recentCalls.map((call) => (
+                        <div
+                          key={call.id}
+                          className="flex items-center justify-between py-3 border-b border-white/[0.04] last:border-0"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center">
+                              <Phone className="h-4 w-4 text-zinc-500" />
+                            </div>
+                            <div>
+                              <p className="text-[13px] font-medium text-zinc-200">
+                                {call.callerNumber}
+                              </p>
+                              <p className="text-[11px] text-zinc-600">
+                                Incoming call · {Math.floor(call.duration / 60)}
+                                m {call.duration % 60}s
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[13px] font-medium text-zinc-200">
-                              {call.callerNumber}
-                            </p>
-                            <p className="text-[11px] text-zinc-600">
-                              Incoming call · {Math.floor(call.duration / 60)}m {call.duration % 60}s
+                          <div className="text-right">
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                              {call.outcome?.charAt(0).toUpperCase() +
+                                call.outcome?.slice(1)}
+                            </span>
+                            <p className="mt-1 text-[11px] text-zinc-600">
+                              {call.createdAt?.toDate
+                                ? new Date(
+                                    call.createdAt.toDate(),
+                                  ).toLocaleTimeString()
+                                : "Recent"}
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-                            {call.outcome?.charAt(0).toUpperCase() + call.outcome?.slice(1)}
-                          </span>
-                          <p className="mt-1 text-[11px] text-zinc-600">
-                            {call.createdAt?.toDate ? new Date(call.createdAt.toDate()).toLocaleTimeString() : "Recent"}
-                          </p>
-                        </div>
-                      </div>
-                    )) : (
-                      <p className="text-center py-6 text-zinc-600 text-sm">No recent calls for this agent.</p>
+                      ))
+                    ) : (
+                      <p className="text-center py-6 text-zinc-600 text-sm">
+                        No recent calls for this agent.
+                      </p>
                     )}
                     <Link
                       href="/calls"
@@ -368,7 +403,11 @@ export default function AgentDetailPage() {
                           {agent.phoneNumber}
                         </p>
                         <p className="text-[11px] text-zinc-500">
-                          San Francisco, CA · Local Number
+                          {agent.locality || agent.region
+                            ? [agent.locality, agent.region]
+                                .filter(Boolean)
+                                .join(", ") + " · Local Number"
+                            : "US Local Number"}
                         </p>
                       </div>
                     </div>
@@ -451,7 +490,13 @@ export default function AgentDetailPage() {
                 </div>
                 <div className="flex items-center justify-between text-[12px]">
                   <span className="text-zinc-600">Created</span>
-                  <span className="text-zinc-500">{agent.createdAt}</span>
+                  <span className="text-zinc-500">
+                    {agent.createdAt?.toDate
+                      ? new Date(agent.createdAt.toDate()).toLocaleDateString()
+                      : typeof agent.createdAt === "string"
+                        ? new Date(agent.createdAt).toLocaleDateString()
+                        : "Recently"}
+                  </span>
                 </div>
               </div>
             </div>
