@@ -154,7 +154,6 @@ export default function AdminRevenuePage() {
         );
         invoicesSnap.docs.forEach((inv) => {
           const data = inv.data();
-          totalNetRevenue += data.amount || 0;
 
           const dateStr = data.createdAt?.toDate?.().toDateString();
           if (dateStr && dailyMap[dateStr] !== undefined)

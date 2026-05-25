@@ -141,7 +141,7 @@ export default function AdminOverviewPage() {
     try {
       // 0. Fetch health status from internal ping routes
       try {
-        const healthRes = await fetch("/api/health");
+        const healthRes = await fetch("/api/admin/health");
         if (healthRes.ok) {
           const healthData = await healthRes.json();
           setHealth(prev => ({ ...prev, vapi: healthData.vapi, twilio: healthData.twilio }));

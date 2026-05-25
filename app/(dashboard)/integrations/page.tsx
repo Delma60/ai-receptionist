@@ -226,7 +226,7 @@ function IntegrationCard({
 
       {/* Feature chips */}
       <div className="flex flex-wrap gap-1.5">
-        {integration.features.map((f) => (
+        {integration?.features?.map((f) => (
           <span
             key={f}
             className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[11px] text-zinc-500"
@@ -363,7 +363,7 @@ function ConnectModal({
               <p className="text-[11px] font-medium uppercase tracking-widest text-zinc-600 mb-3">
                 Permissions required
               </p>
-              {integration.features.map((f) => (
+              {integration?.features?.map((f) => (
                 <div key={f} className="flex items-center gap-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                   <span className="text-[13px] text-zinc-400">{f}</span>
