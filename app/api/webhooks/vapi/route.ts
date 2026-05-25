@@ -141,8 +141,7 @@ export async function POST(req: Request) {
       outcome = "booked";
     }
 
-    // ── Read current tenant metrics for computed fields ───────────────────
-    // We read first so we can derive rolling averages and rates accurately.
+    // FIX 10 & 12: Read current tenant metrics to compute accurate aggregates
     const tenantSnap  = await tenantRef.get();
     const current     = tenantSnap.data() ?? {};
 
@@ -153,15 +152,18 @@ export async function POST(req: Request) {
 
     // Post-this-call totals
     const newTotal    = prevTotal + 1;
-    const newMissed   = prevMissed   + (outcome === "unanswered" ? 1 : 0);
-    const newBookings = prevBookings + (outcome === "booked"     ? 1 : 0);
+    const newMissed   = outcome === "unanswered" ? prevMissed + 1 : prevMissed;
+    const newBookings = outcome === "booked"     ? prevBookings + 1 : prevBookings;
 
-    // Rolling average duration (weighted by call count)
-    const newAvgSecs  = Math.round((prevAvgSecs * prevTotal + duration) / newTotal);
+    // FIX 12: Rolling weighted-average duration (seconds)
+    // Formula: ((prevAvg * prevTotal) + newDuration) / newTotal
+    const newAvgSecs = newTotal > 0
+      ? Math.round((prevAvgSecs * prevTotal + duration) / newTotal)
+      : duration;
 
-    // Rate fields (0–100, rounded integer percentages)
-    const newBookingRate = Math.round((newBookings / newTotal) * 100);
-    const newMissRate    = Math.round((newMissed   / newTotal) * 100);
+    // FIX 10: Rate fields — integer percentages based on true cumulative counts
+    const newBookingRate = newTotal > 0 ? Math.round((newBookings / newTotal) * 100) : 0;
+    const newMissRate    = newTotal > 0 ? Math.round((newMissed   / newTotal) * 100) : 0;
 
     const durationMinutes = duration / 60;
 
@@ -193,21 +195,23 @@ export async function POST(req: Request) {
     );
 
     // ── Write tenant metrics ──────────────────────────────────────────────
-    // Accumulators use FieldValue.increment (safe for concurrent writes).
-    // Computed fields (averages / rates) use concrete values derived above.
+    // All increment operations use FieldValue.increment for atomicity.
+    // Computed aggregates (avg, rates) use concrete values derived above
+    // from a pre-read snapshot, which is safe for low-concurrency tenants.
     await tenantRef.set(
       {
-        // Accumulators
+        // Atomic increments
         minutesUsed:    FieldValue.increment(Math.round(durationMinutes)),
         totalCalls:     FieldValue.increment(1),
         callsToday:     FieldValue.increment(1),
-        missedCalls:    outcome === "unanswered" ? FieldValue.increment(1) : current.missedCalls ?? 0,
-        totalBookings:  outcome === "booked"     ? FieldValue.increment(1) : current.totalBookings ?? 0,
-        bookingsToday:  outcome === "booked"     ? FieldValue.increment(1) : current.bookingsToday ?? 0,
-        transfersToday: outcome === "transferred" ? FieldValue.increment(1) : current.transfersToday ?? 0,
-        messagesToday:  outcome === "message"    ? FieldValue.increment(1) : current.messagesToday ?? 0,
 
-        // Computed / derived metrics
+        // Conditional increments — only bump the relevant outcome counter
+        ...(outcome === "unanswered"  && { missedCalls:    FieldValue.increment(1) }),
+        ...(outcome === "booked"      && { totalBookings:  FieldValue.increment(1), bookingsToday:  FieldValue.increment(1) }),
+        ...(outcome === "transferred" && { transfersToday: FieldValue.increment(1) }),
+        ...(outcome === "message"     && { messagesToday:  FieldValue.increment(1) }),
+
+        // FIX 10 & 12: Computed / derived metrics — concrete values from snapshot read
         avgDurationSecs: newAvgSecs,
         bookingRate:     newBookingRate,
         missRate:        newMissRate,
@@ -228,13 +232,15 @@ export async function POST(req: Request) {
       const prevAgentCalls    = (agentData.callsHandled ?? 0) as number;
       const prevAgentBookings = (agentData.totalBookings ?? 0) as number;
       const newAgentCalls     = prevAgentCalls + 1;
-      const newAgentBookings  = prevAgentBookings + (outcome === "booked" ? 1 : 0);
-      const agentBookingRate  = Math.round((newAgentBookings / newAgentCalls) * 100);
+      const newAgentBookings  = outcome === "booked" ? prevAgentBookings + 1 : prevAgentBookings;
+      const agentBookingRate  = newAgentCalls > 0
+        ? Math.round((newAgentBookings / newAgentCalls) * 100)
+        : 0;
 
       await agentRef.set(
         {
           callsHandled:  FieldValue.increment(1),
-          totalBookings: outcome === "booked" ? FieldValue.increment(1) : prevAgentBookings,
+          ...(outcome === "booked" && { totalBookings: FieldValue.increment(1) }),
           bookingRate:   agentBookingRate,
           lastCallAt:    FieldValue.serverTimestamp(),
         },

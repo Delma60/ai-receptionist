@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       const plan = (session.metadata?.plan as string) || "growth";
       const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.growth;
 
+      // FIX 11: Write minutesLimit accurately from the plan catalogue
       await adminDb.collection("tenants").doc(tenantId).update({
         stripeCustomerId:      session.customer,
         stripeSubscriptionId:  session.subscription,

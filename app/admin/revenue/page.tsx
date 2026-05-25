@@ -1,69 +1,140 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TrendingUp, DollarSign, Users, Download, Loader2 } from "lucide-react";
+import {
+  TrendingUp,
+  DollarSign,
+  Users,
+  Download,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  collectionGroup,
+  query,
+  where,
+  Timestamp,
+} from "firebase/firestore";
 import { Button } from "@/components/ui/Button";
+
+// FIX 8: Plan price map — single source of truth matching PLAN_LIMITS in types/index.ts
+const PLAN_PRICE: Record<string, number> = {
+  starter: 49,
+  growth: 149,
+  pro: 349,
+};
+
+interface RevenueStats {
+  mrr: number;
+  netRevenue: number;
+  activeSubs: number;
+  planBreakdown: { starter: number; growth: number; pro: number };
+  avgRevenuePerUser: number;
+}
 
 export default function AdminRevenuePage() {
   const [loading, setLoading] = useState(true);
-  const [mrr, setMrr] = useState(0);
-  const [activeSubs, setActiveSubs] = useState(0);
-  const [netRevenue, setNetRevenue] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<RevenueStats>({
+    mrr: 0,
+    netRevenue: 0,
+    activeSubs: 0,
+    planBreakdown: { starter: 0, growth: 0, pro: 0 },
+    avgRevenuePerUser: 0,
+  });
 
-  useEffect(() => {
-    const fetchRevenueData = async () => {
+  const fetchRevenueData = async () => {
+    try {
+      // FIX 8: Real MRR aggregation from live tenant plan data
+      const tenantsSnap = await getDocs(collection(db, "tenants"));
+      let totalMrr = 0;
+      let subsCount = 0;
+      const planBreakdown = { starter: 0, growth: 0, pro: 0 };
+
+      tenantsSnap.docs.forEach((d) => {
+        const plan = (d.data().plan || "starter") as keyof typeof planBreakdown;
+        subsCount++;
+        totalMrr += PLAN_PRICE[plan] ?? 0;
+        if (plan in planBreakdown) planBreakdown[plan]++;
+      });
+
+      // FIX 8: Real net revenue from paid invoices in last 30 days
+      // using collectionGroup for platform-wide invoice query
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      let totalNetRevenue = 0;
       try {
-        const snap = await getDocs(collection(db, "tenants"));
-        let totalMrr = 0;
-        let subsCount = 0;
-        let totalNetRevenue = 0;
-        const now = new Date();
-        const thirtyDaysAgo = new Date(
-          now.getTime() - 30 * 24 * 60 * 60 * 1000,
+        const invoicesSnap = await getDocs(
+          query(
+            collectionGroup(db, "invoices"),
+            where("status", "==", "paid"),
+            where("createdAt", ">=", Timestamp.fromDate(thirtyDaysAgo)),
+          ),
         );
-
-        // For each tenant, aggregate invoices
+        invoicesSnap.docs.forEach((inv) => {
+          totalNetRevenue += inv.data().amount || 0;
+        });
+      } catch (err) {
+        // collectionGroup query may need a Firestore index — fall back to per-tenant aggregation
+        console.warn(
+          "[revenue] collectionGroup query failed, falling back:",
+          err,
+        );
         await Promise.all(
-          snap.docs.map(async (d) => {
-            const data = d.data();
-            subsCount++;
-            const plan = data.plan || "starter";
-            if (plan === "pro") totalMrr += 349;
-            else if (plan === "growth") totalMrr += 149;
-            else if (plan === "starter") totalMrr += 49;
-
-            // Aggregate paid invoices in last 30 days
-            const invoicesSnap = await getDocs(
-              collection(db, "tenants", d.id, "invoices"),
+          tenantsSnap.docs.map(async (tenantDoc) => {
+            const invSnap = await getDocs(
+              collection(db, "tenants", tenantDoc.id, "invoices"),
             );
-            invoicesSnap.forEach((inv) => {
-              const invData = inv.data();
+            invSnap.docs.forEach((inv) => {
+              const data = inv.data();
               if (
-                invData.status === "paid" &&
-                invData.createdAt &&
-                invData.createdAt.toDate &&
-                invData.createdAt.toDate() >= thirtyDaysAgo
+                data.status === "paid" &&
+                data.createdAt?.toDate &&
+                data.createdAt.toDate() >= thirtyDaysAgo
               ) {
-                totalNetRevenue += invData.amount || 0;
+                totalNetRevenue += data.amount || 0;
               }
             });
           }),
         );
-
-        setMrr(totalMrr);
-        setActiveSubs(subsCount);
-        setNetRevenue(totalNetRevenue);
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching revenue data:", err);
-        setLoading(false);
       }
-    };
+
+      const avgRevenuePerUser =
+        subsCount > 0 ? Math.round(totalMrr / subsCount) : 0;
+
+      setStats({
+        mrr: totalMrr,
+        netRevenue: Math.round(totalNetRevenue),
+        activeSubs: subsCount,
+        planBreakdown,
+        avgRevenuePerUser,
+      });
+    } catch (err) {
+      console.error("Error fetching revenue data:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchRevenueData();
   }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchRevenueData();
+  };
+
+  const totalPlanned =
+    stats.planBreakdown.starter +
+    stats.planBreakdown.growth +
+    stats.planBreakdown.pro;
 
   return (
     <div className="space-y-6">
@@ -74,15 +145,28 @@ export default function AdminRevenuePage() {
             Platform Revenue
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Monitor MRR, active subscriptions, and overall financial growth.
+            Live MRR, subscriptions, and 30-day net revenue from Firestore.
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="h-9 border-white/[0.06] bg-zinc-900/40 text-zinc-400 hover:text-white"
-        >
-          <Download className="mr-2 h-4 w-4" /> Export Report
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="h-9 border-white/[0.06] bg-zinc-900/40 text-zinc-400 hover:text-white"
+          >
+            <RefreshCw
+              className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")}
+            />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 border-white/[0.06] bg-zinc-900/40 text-zinc-400 hover:text-white"
+          >
+            <Download className="mr-2 h-4 w-4" /> Export Report
+          </Button>
+        </div>
       </div>
 
       {/* ── Stats ── */}
@@ -91,52 +175,118 @@ export default function AdminRevenuePage() {
           <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            {
-              label: "Est. MRR",
-              value: `$${mrr.toLocaleString()}`,
-              icon: TrendingUp,
-              color: "text-emerald-400",
-              sub: "Based on active plans",
-            },
-            {
-              label: "Net Revenue",
-              value: `$${netRevenue.toLocaleString()}`,
-              icon: DollarSign,
-              color: "text-violet-400",
-              sub: "Last 30 days",
-            },
-            {
-              label: "Active Subs",
-              value: activeSubs.toLocaleString(),
-              icon: Users,
-              color: "text-sky-400",
-              sub: "Paying organizations",
-            },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-4"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-zinc-500 uppercase tracking-widest">
-                  {stat.label}
-                </p>
-                <stat.icon className={cn("h-4 w-4", stat.color)} />
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: "Est. MRR",
+                value: `$${stats.mrr.toLocaleString()}`,
+                icon: TrendingUp,
+                color: "text-emerald-400",
+                sub: "From active plan subscriptions",
+              },
+              {
+                label: "Net Revenue (30d)",
+                value: `$${stats.netRevenue.toLocaleString()}`,
+                icon: DollarSign,
+                color: "text-violet-400",
+                sub: "Paid invoices last 30 days",
+              },
+              {
+                label: "Active Subscribers",
+                value: stats.activeSubs.toLocaleString(),
+                icon: Users,
+                color: "text-sky-400",
+                sub: "Paying organizations",
+              },
+              {
+                label: "ARPU",
+                value: `$${stats.avgRevenuePerUser}`,
+                icon: TrendingUp,
+                color: "text-amber-400",
+                sub: "Average revenue per user",
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-4"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-zinc-500 uppercase tracking-widest">
+                    {stat.label}
+                  </p>
+                  <stat.icon className={cn("h-4 w-4", stat.color)} />
+                </div>
+                <p className="text-2xl font-bold text-white">{stat.value}</p>
+                <p className="text-[11px] text-zinc-600 mt-1">{stat.sub}</p>
               </div>
-              <p className="text-2xl font-bold text-white">{stat.value}</p>
-              <p className="text-[11px] text-zinc-600 mt-1">{stat.sub}</p>
+            ))}
+          </div>
+
+          {/* Plan breakdown */}
+          {totalPlanned > 0 && (
+            <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-5">
+              <p className="text-[12px] font-medium uppercase tracking-widest text-zinc-600 mb-4">
+                Revenue by Plan
+              </p>
+              <div className="space-y-3">
+                {(
+                  [
+                    {
+                      key: "pro",
+                      label: "Pro",
+                      price: 349,
+                      color: "bg-violet-500",
+                    },
+                    {
+                      key: "growth",
+                      label: "Growth",
+                      price: 149,
+                      color: "bg-sky-500",
+                    },
+                    {
+                      key: "starter",
+                      label: "Starter",
+                      price: 49,
+                      color: "bg-zinc-600",
+                    },
+                  ] as const
+                ).map(({ key, label, price, color }) => {
+                  const count = stats.planBreakdown[key];
+                  const revenue = count * price;
+                  const pct = stats.mrr > 0 ? (revenue / stats.mrr) * 100 : 0;
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex items-center justify-between text-[12px]">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("h-2 w-2 rounded-full", color)} />
+                          <span className="text-zinc-300">{label}</span>
+                          <span className="text-zinc-600">
+                            ({count} tenants)
+                          </span>
+                        </div>
+                        <span className="text-zinc-300 font-medium">
+                          ${revenue.toLocaleString()}/mo
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                        <div
+                          className={cn("h-full rounded-full", color)}
+                          style={{ width: `${pct}%`, opacity: 0.8 }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
-      {/* Placeholder for future revenue charts */}
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-8 flex items-center justify-center min-h-[300px]">
-        <p className="text-zinc-500 text-sm">
-          Revenue metrics visualization coming soon...
-        </p>
+      {/* Placeholder for future chart */}
+      <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-8 flex items-center justify-center min-h-[200px]">
+        <p className="text-zinc-500 text-sm">MRR trend chart coming soon…</p>
       </div>
     </div>
   );
