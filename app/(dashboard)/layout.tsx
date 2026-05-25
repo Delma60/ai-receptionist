@@ -22,7 +22,15 @@ import { cn } from "@/lib/utils";
 import { ImpersonateBanner } from "@/components/admin/ImpersonateBanner";
 import { signOut, onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, onSnapshot, collection, query, where, limit } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  collection,
+  query,
+  where,
+  limit,
+} from "firebase/firestore";
+import { UsageBanner } from "@/components/billing/usage-banner";
 
 const navItems = [
   {
@@ -102,13 +110,13 @@ export default function DashboardLayout({
       .split("; ")
       .find((row) => row.startsWith("impersonated_tenant_id="))
       ?.split("=")[1];
-    
+
     setImpersonatedId(cookieValue || null);
   }, [pathname]);
 
   useEffect(() => {
     const effectiveId = impersonatedId || user?.uid;
-    
+
     if (!effectiveId) {
       setTenant(null);
       setActiveAgent(null);
@@ -119,12 +127,22 @@ export default function DashboardLayout({
       setTenant(doc.data());
     });
 
-    const unsubAgent = onSnapshot(query(collection(db, "tenants", effectiveId, "agents"), where("isActive", "==", true), limit(1)), (snapshot) => {
-      if (!snapshot.empty) setActiveAgent(snapshot.docs[0].data());
-      else setActiveAgent(null);
-    });
+    const unsubAgent = onSnapshot(
+      query(
+        collection(db, "tenants", effectiveId, "agents"),
+        where("isActive", "==", true),
+        limit(1),
+      ),
+      (snapshot) => {
+        if (!snapshot.empty) setActiveAgent(snapshot.docs[0].data());
+        else setActiveAgent(null);
+      },
+    );
 
-    return () => { unsubTenant(); unsubAgent(); };
+    return () => {
+      unsubTenant();
+      unsubAgent();
+    };
   }, [user, impersonatedId]);
 
   async function handleExitImpersonation() {
@@ -156,14 +174,20 @@ export default function DashboardLayout({
     <div className="flex min-h-screen bg-zinc-950 font-[family-name:var(--font-geist-sans)]">
       {impersonatedId && tenant && (
         <div className="fixed top-0 left-0 right-0 z-[100]">
-          <ImpersonateBanner tenantName={tenant.name} onExit={handleExitImpersonation} />
+          <ImpersonateBanner
+            tenantName={tenant.name}
+            onExit={handleExitImpersonation}
+          />
         </div>
       )}
 
       {/* Logout Confirmation Dialog */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLogoutConfirm(false)}
+          />
           <div className="relative w-full max-w-sm rounded-xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
             <h3 className="text-lg font-semibold text-white">Sign out</h3>
             <p className="mt-2 text-sm text-zinc-400">
@@ -205,7 +229,6 @@ export default function DashboardLayout({
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-
         {/* Subtle gradient stripe at top */}
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
 
@@ -310,25 +333,13 @@ export default function DashboardLayout({
         </nav>
 
         {/* Divider + Usage */}
-        {!collapsed && (
-          <div className="mx-3 mb-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] text-zinc-500">Minutes used</p>
-              <p className="text-[11px] font-semibold text-zinc-300">
-                {tenant?.minutesUsed || 0} / {tenant?.minutesLimit || 500}
-              </p>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-600 to-violet-400"
-                style={{ width: `${Math.min(((tenant?.minutesUsed || 0) / (tenant?.minutesLimit || 500)) * 100, 100)}%` }}
-              />
-            </div>
-            <p className="mt-1.5 text-[10px] text-zinc-600">
-              {tenant?.plan?.charAt(0).toUpperCase() + tenant?.plan?.slice(1) || "Starter"} plan · Resets Jun 1
-            </p>
-          </div>
-        )}
+        {/* {!collapsed && (
+        )} */}
+        <UsageBanner
+          minutesLimit={tenant?.minutesLimit || 500}
+          minutesUsed={tenant?.minutesUsed || 0}
+          plan={tenant?.plan || "starter"}
+        />
 
         {/* Bottom: User + collapse */}
         <div className="border-t border-white/[0.06]">
