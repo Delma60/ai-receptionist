@@ -1,4 +1,4 @@
-import { adminDb } from "../lib/firebase-admin";
+import { adminDb } from "../firebase-admin";
 
 export interface AppConfig {
   paymentProvider: 'stripe' | 'flutterwave';

@@ -1,4 +1,4 @@
-import { getAppConfig } from "@/config/app-config";
+import { getAppConfig } from "@/lib/config/app-config";
 import { NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
