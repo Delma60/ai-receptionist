@@ -24,6 +24,7 @@ const navGroups = [
     label: "Management",
     items: [
       { label: "Tenants",      href: "/admin/tenants",      icon: Users,     badge: "12" },
+      { label: "Roles & Permissions", href: "/admin/roles", icon: Shield },
       { label: "Calls",        href: "/admin/calls",        icon: PhoneCall },
       { label: "Integrations", href: "/admin/integrations", icon: Puzzle },
     ],

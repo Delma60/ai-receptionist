@@ -7,7 +7,7 @@ import { hasRole, ROUTE_GUARDS, type PlatformRole } from "@/lib/rbac";
 
 const PUBLIC_PATHS  = new Set(["/", "/sign-in", "/sign-up", "/maintenance", "/api/admin/set-role"]);
 const SKIP_PREFIXES = ["/_next", "/api/auth", "/api/webhooks", "/api/config", "/favicon", "/api/admin/set-role"];
-
+const SENSITIVE_PREFIXES = ['/admin', '/api/admin'];
 // ── Helpers ────────────────────────────────────────────────────────────
 
 function isPublicPath(pathname: string): boolean {
@@ -19,9 +19,12 @@ function isPublicPath(pathname: string): boolean {
 
 function getRole(req: NextRequest): PlatformRole | null {
   const role = req.cookies.get("user-role")?.value;
-  console.log("User role from cookie:", role);
   if (role === "admin" || role === "support" || role === "user") return role;
   return null;
+}
+
+function isSensitivePath(pathname: string): boolean {
+  return SENSITIVE_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
 // ── Middleware ─────────────────────────────────────────────────────────
@@ -48,6 +51,7 @@ export  async function proxy(req: NextRequest) {
   }
 
   // 3. Role-based route guards (defined centrally in lib/rbac.ts)
+  console.log("Checking route guards for path:", pathname, "with role:", userRole);
   for (const guard of ROUTE_GUARDS) {
     if (guard.pattern.test(pathname)) {
       if (!hasRole(userRole, guard.requiredRole)) {

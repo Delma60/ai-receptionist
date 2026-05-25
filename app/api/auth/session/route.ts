@@ -16,7 +16,7 @@ const COOKIE_OPTS = {
 9
 export async function GET() {
   const context = await getTenantContext();
-  return NextResponse.json(context ?? { role: null });
+  return NextResponse.json(context ?? { role: null, userId: null });
 }
 
 export async function POST(request: Request) {
