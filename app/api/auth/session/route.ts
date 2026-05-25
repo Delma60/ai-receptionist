@@ -13,7 +13,6 @@ const COOKIE_OPTS = {
   path: "/",
   sameSite: "lax" as const,
 };
-9
 export async function GET() {
   const context = await getTenantContext();
   return NextResponse.json(context ?? { role: null, userId: null });

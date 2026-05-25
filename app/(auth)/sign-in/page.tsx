@@ -3,10 +3,15 @@ import Link from "next/link";
 import { Bot } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { auth } from "@/lib/firebase";
-import { signInWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  GithubAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
@@ -24,9 +29,13 @@ export default function SignInPage() {
     const password = (form.elements.namedItem("password") as HTMLInputElement)
       ?.value;
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
       const idToken = await userCredential.user.getIdToken();
-      
+
       await fetch("/api/auth/session", {
         method: "POST",
         body: JSON.stringify({ idToken }),

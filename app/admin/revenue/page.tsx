@@ -19,7 +19,7 @@ import {
   where,
   Timestamp,
 } from "firebase/firestore";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 
 // FIX 8: Plan price map — single source of truth matching PLAN_LIMITS in types/index.ts
 const PLAN_PRICE: Record<string, number> = {
@@ -61,23 +61,35 @@ export default function AdminRevenuePage() {
       <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-5">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-[15px] font-semibold text-white">Daily Revenue Trend</h2>
-            <p className="mt-0.5 text-[12px] text-zinc-500">Net revenue from paid invoices · Last 30 days</p>
+            <h2 className="text-[15px] font-semibold text-white">
+              Daily Revenue Trend
+            </h2>
+            <p className="mt-0.5 text-[12px] text-zinc-500">
+              Net revenue from paid invoices · Last 30 days
+            </p>
           </div>
         </div>
         <div className="flex items-end gap-1 h-40">
           {data.map((d, i) => {
-            const h = d.amount === 0 ? 2 : Math.round((d.amount / maxAmount) * 140);
+            const h =
+              d.amount === 0 ? 2 : Math.round((d.amount / maxAmount) * 140);
             return (
-              <div key={i} className="group relative flex-1 flex flex-col items-center gap-2">
+              <div
+                key={i}
+                className="group relative flex-1 flex flex-col items-center gap-2"
+              >
                 <div className="pointer-events-none absolute -top-10 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-zinc-950 px-2.5 py-1.5 text-[10px] text-zinc-200 opacity-0 transition-opacity group-hover:opacity-100 border border-white/10 shadow-2xl">
                   <p className="font-semibold text-white">{d.date}</p>
-                  <p className="text-emerald-400 font-mono">${d.amount.toLocaleString()}</p>
+                  <p className="text-emerald-400 font-mono">
+                    ${d.amount.toLocaleString()}
+                  </p>
                 </div>
-                <div 
+                <div
                   className={cn(
                     "w-full rounded-t-sm transition-all duration-300",
-                    d.amount > 0 ? "bg-emerald-500/40 group-hover:bg-emerald-500/80" : "bg-zinc-800/20"
+                    d.amount > 0
+                      ? "bg-emerald-500/40 group-hover:bg-emerald-500/80"
+                      : "bg-zinc-800/20",
                   )}
                   style={{ height: h }}
                 />
@@ -104,9 +116,12 @@ export default function AdminRevenuePage() {
         const ds = d.toDateString();
         dailyMap[ds] = 0;
         initialTrend.push({
-          date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          date: d.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
           fullDate: ds,
-          amount: 0
+          amount: 0,
         });
       }
 
@@ -138,12 +153,12 @@ export default function AdminRevenuePage() {
           ),
         );
         invoicesSnap.docs.forEach((inv) => {
-          totalNetRevenue += inv.data().amount || 0;
           const data = inv.data();
           totalNetRevenue += data.amount || 0;
 
           const dateStr = data.createdAt?.toDate?.().toDateString();
-          if (dateStr && dailyMap[dateStr] !== undefined) dailyMap[dateStr] += data.amount || 0;
+          if (dateStr && dailyMap[dateStr] !== undefined)
+            dailyMap[dateStr] += data.amount || 0;
         });
       } catch (err) {
         // collectionGroup query may need a Firestore index — fall back to per-tenant aggregation
@@ -166,7 +181,8 @@ export default function AdminRevenuePage() {
                 totalNetRevenue += data.amount || 0;
 
                 const dateStr = data.createdAt.toDate().toDateString();
-                if (dailyMap[dateStr] !== undefined) dailyMap[dateStr] += data.amount || 0;
+                if (dailyMap[dateStr] !== undefined)
+                  dailyMap[dateStr] += data.amount || 0;
               }
             });
           }),
@@ -176,9 +192,9 @@ export default function AdminRevenuePage() {
       const avgRevenuePerUser =
         subsCount > 0 ? Math.round(totalMrr / subsCount) : 0;
 
-      const trendData = initialTrend.map(p => ({
+      const trendData = initialTrend.map((p) => ({
         ...p,
-        amount: dailyMap[p.fullDate] || 0
+        amount: dailyMap[p.fullDate] || 0,
       }));
 
       setStats({
@@ -359,12 +375,10 @@ export default function AdminRevenuePage() {
         </>
       )}
 
-      {/* Placeholder for future chart */}
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-8 flex items-center justify-center min-h-[200px]">
-        <p className="text-zinc-500 text-sm">MRR trend chart coming soon…</p>
-      </div>
       {/* Revenue Trend Chart */}
-      {!loading && stats.trendData.length > 0 && <RevenueTrendChart data={stats.trendData} />}
+      {!loading && stats.trendData.length > 0 && (
+        <RevenueTrendChart data={stats.trendData} />
+      )}
     </div>
   );
 }

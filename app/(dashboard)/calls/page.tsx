@@ -31,6 +31,7 @@ import {
   orderBy,
   onSnapshot,
   doc,
+  where,
 } from "firebase/firestore";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -314,7 +320,12 @@ function TranscriptDrawer({
                       <User className="h-3.5 w-3.5 text-zinc-400" />
                     )}
                   </div>
-                  <div className={cn("max-w-[80%]", msg.role === "caller" && "items-end flex flex-col")}>
+                  <div
+                    className={cn(
+                      "max-w-[80%]",
+                      msg.role === "caller" && "items-end flex flex-col",
+                    )}
+                  >
                     <div
                       className={cn(
                         "rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm",
@@ -444,48 +455,39 @@ export default function CallsPage() {
     const now = new Date();
     if (dateRange === "Today") {
       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      constraints.push({ field: "createdAt", op: ">=", value: start });
+      constraints.push(where("createdAt", ">=", start));
     } else if (dateRange === "Last 7 days") {
       const start = new Date(
         now.getFullYear(),
         now.getMonth(),
         now.getDate() - 6,
       );
-      constraints.push({ field: "createdAt", op: ">=", value: start });
+      constraints.push(where("createdAt", ">=", start));
     } else if (dateRange === "Last 30 days") {
       const start = new Date(
         now.getFullYear(),
         now.getMonth(),
         now.getDate() - 29,
       );
-      constraints.push({ field: "createdAt", op: ">=", value: start });
+      constraints.push(where("createdAt", ">=", start));
     }
     // Agent filter
     if (agentFilter !== "All agents") {
-      constraints.push({ field: "agentName", op: "==", value: agentFilter });
+      constraints.push(where("agentName", "==", agentFilter));
     }
     // Duration filter
     if (durationFilter === "Under 1 min") {
-      constraints.push({ field: "duration", op: "<", value: 60 });
+      constraints.push(where("duration", "<", 60));
     } else if (durationFilter === "1–3 min") {
-      constraints.push({ field: "duration", op: ">=", value: 60 });
-      constraints.push({ field: "duration", op: "<=", value: 180 });
+      constraints.push(where("duration", ">=", 60));
+      constraints.push(where("duration", "<=", 180));
     } else if (durationFilter === "Over 3 min") {
-      constraints.push({ field: "duration", op: ">", value: 180 });
+      constraints.push(where("duration", ">", 180));
     }
 
     // Build Firestore query
     let q = collection(db, "tenants", user.uid, "calls");
-    let qArgs: any[] = [];
-    constraints.forEach((c) => {
-      if (c.field && c.op && c.value !== undefined) {
-        const { where } = require("firebase/firestore");
-        qArgs.push(where(c.field, c.op, c.value));
-      } else {
-        qArgs.push(c);
-      }
-    });
-    const finalQuery = query(q, ...qArgs);
+    const finalQuery = query(q, ...constraints);
 
     const unsubCalls = onSnapshot(finalQuery, (snapshot) => {
       const callsData = snapshot.docs.map((doc) => {

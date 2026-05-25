@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 interface Call {
@@ -82,7 +82,7 @@ export default function AdminCallsPage() {
     const q = query(
       collectionGroup(db, "calls"),
       orderBy("createdAt", "desc"),
-      limit(100)
+      limit(100),
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -107,9 +107,9 @@ export default function AdminCallsPage() {
       c.callerNumber?.toLowerCase().includes(search.toLowerCase()) ||
       tenants[c.tenantId]?.toLowerCase().includes(search.toLowerCase()) ||
       c.agentName?.toLowerCase().includes(search.toLowerCase());
-    
+
     const matchesFilter = filter === "all" || c.outcome === filter;
-    
+
     return matchesSearch && matchesFilter;
   });
 
@@ -120,7 +120,8 @@ export default function AdminCallsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Platform Calls</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Live monitor of all AI receptionist activity across every registered business.
+            Live monitor of all AI receptionist activity across every registered
+            business.
           </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
@@ -128,21 +129,48 @@ export default function AdminCallsPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
-          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Live Feed</span>
+          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+            Live Feed
+          </span>
         </div>
       </div>
 
       {/* ── Stats Overview ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Platform Volume", value: calls.length, icon: PhoneCall, color: "text-blue-400" },
-          { label: "Booked", value: calls.filter(c => c.outcome === 'booked').length, icon: CheckCircle2, color: "text-emerald-400" },
-          { label: "Avg. Duration", value: "2m 14s", icon: Clock, color: "text-violet-400" },
-          { label: "Missed/Failed", value: calls.filter(c => c.outcome === 'unanswered').length, icon: XCircle, color: "text-red-400" },
+          {
+            label: "Platform Volume",
+            value: calls.length,
+            icon: PhoneCall,
+            color: "text-blue-400",
+          },
+          {
+            label: "Booked",
+            value: calls.filter((c) => c.outcome === "booked").length,
+            icon: CheckCircle2,
+            color: "text-emerald-400",
+          },
+          {
+            label: "Avg. Duration",
+            value: "2m 14s",
+            icon: Clock,
+            color: "text-violet-400",
+          },
+          {
+            label: "Missed/Failed",
+            value: calls.filter((c) => c.outcome === "unanswered").length,
+            icon: XCircle,
+            color: "text-red-400",
+          },
         ].map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-4">
+          <div
+            key={stat.label}
+            className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-4"
+          >
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-widest">{stat.label}</p>
+              <p className="text-xs font-medium text-zinc-500 uppercase tracking-widest">
+                {stat.label}
+              </p>
               <stat.icon className={cn("h-4 w-4", stat.color)} />
             </div>
             <p className="text-2xl font-bold text-white">{stat.value}</p>
@@ -162,20 +190,22 @@ export default function AdminCallsPage() {
           />
         </div>
         <div className="flex gap-2">
-          {["all", "booked", "transferred", "message", "unanswered"].map((o) => (
-            <button
-              key={o}
-              onClick={() => setFilter(o)}
-              className={cn(
-                "px-3 py-2 rounded-lg border text-xs font-medium capitalize transition-all",
-                filter === o
-                  ? "bg-white/[0.08] border-white/[0.2] text-white"
-                  : "bg-zinc-900/40 border-white/[0.06] text-zinc-500 hover:text-zinc-300"
-              )}
-            >
-              {o}
-            </button>
-          ))}
+          {["all", "booked", "transferred", "message", "unanswered"].map(
+            (o) => (
+              <button
+                key={o}
+                onClick={() => setFilter(o)}
+                className={cn(
+                  "px-3 py-2 rounded-lg border text-xs font-medium capitalize transition-all",
+                  filter === o
+                    ? "bg-white/[0.08] border-white/[0.2] text-white"
+                    : "bg-zinc-900/40 border-white/[0.06] text-zinc-500 hover:text-zinc-300",
+                )}
+              >
+                {o}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
@@ -184,31 +214,52 @@ export default function AdminCallsPage() {
         {loading ? (
           <div className="py-24 flex flex-col items-center justify-center text-center">
             <Loader2 className="h-8 w-8 text-emerald-500 animate-spin mb-4" />
-            <p className="text-sm text-zinc-500">Connecting to global call stream...</p>
+            <p className="text-sm text-zinc-500">
+              Connecting to global call stream...
+            </p>
           </div>
         ) : filteredCalls.length === 0 ? (
           <div className="py-24 flex flex-col items-center justify-center text-center">
             <PhoneCall className="h-10 w-10 text-zinc-800 mb-4" />
-            <h3 className="text-lg font-medium text-zinc-500">No calls found</h3>
-            <p className="text-sm text-zinc-600 mt-1">Try adjusting your filters or search terms.</p>
+            <h3 className="text-lg font-medium text-zinc-500">
+              No calls found
+            </h3>
+            <p className="text-sm text-zinc-600 mt-1">
+              Try adjusting your filters or search terms.
+            </p>
           </div>
         ) : (
           <Table>
             <TableHeader className="bg-white/[0.02]">
               <TableRow className="border-white/[0.06] hover:bg-transparent">
-                <TableHead className="text-zinc-500 font-medium">Business / Tenant</TableHead>
-                <TableHead className="text-zinc-500 font-medium">Caller</TableHead>
-                <TableHead className="text-zinc-500 font-medium">Agent</TableHead>
-                <TableHead className="text-zinc-500 font-medium">Outcome</TableHead>
-                <TableHead className="text-zinc-500 font-medium">Duration</TableHead>
-                <TableHead className="text-right text-zinc-500 font-medium pr-6">Date</TableHead>
+                <TableHead className="text-zinc-500 font-medium">
+                  Business / Tenant
+                </TableHead>
+                <TableHead className="text-zinc-500 font-medium">
+                  Caller
+                </TableHead>
+                <TableHead className="text-zinc-500 font-medium">
+                  Agent
+                </TableHead>
+                <TableHead className="text-zinc-500 font-medium">
+                  Outcome
+                </TableHead>
+                <TableHead className="text-zinc-500 font-medium">
+                  Duration
+                </TableHead>
+                <TableHead className="text-right text-zinc-500 font-medium pr-6">
+                  Date
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredCalls.map((call) => (
-                <TableRow key={call.id} className="border-white/[0.06] hover:bg-white/[0.02] group">
+                <TableRow
+                  key={call.id}
+                  className="border-white/[0.06] hover:bg-white/[0.02] group"
+                >
                   <TableCell>
-                    <Link 
+                    <Link
                       href={`/admin/tenants/${call.tenantId}`}
                       className="flex flex-col min-w-0 hover:opacity-80 transition-opacity"
                     >
@@ -216,22 +267,33 @@ export default function AdminCallsPage() {
                         {tenants[call.tenantId] || "Loading..."}
                         <ArrowUpRight className="h-3 w-3 text-zinc-600" />
                       </span>
-                      <span className="text-[10px] font-mono text-zinc-600 uppercase">ID: {call.tenantId.slice(0, 8)}</span>
+                      <span className="text-[10px] font-mono text-zinc-600 uppercase">
+                        ID: {call.tenantId.slice(0, 8)}
+                      </span>
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm font-mono text-zinc-300">{call.callerNumber || "Anonymous"}</span>
+                    <span className="text-sm font-mono text-zinc-300">
+                      {call.callerNumber || "Anonymous"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className="h-6 w-6 rounded-full bg-violet-500/10 flex items-center justify-center">
                         <User className="h-3 w-3 text-violet-400" />
                       </div>
-                      <span className="text-sm text-zinc-400">{call.agentName}</span>
+                      <span className="text-sm text-zinc-400">
+                        {call.agentName}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={cn("rounded-md px-2 py-0.5 text-[10px] uppercase font-bold", outcomeStyles[call.outcome])}>
+                    <Badge
+                      className={cn(
+                        "rounded-md px-2 py-0.5 text-[10px] uppercase font-bold",
+                        outcomeStyles[call.outcome],
+                      )}
+                    >
                       {call.outcome}
                     </Badge>
                   </TableCell>
@@ -243,10 +305,19 @@ export default function AdminCallsPage() {
                   <TableCell className="text-right pr-6">
                     <div className="flex flex-col items-end">
                       <span className="text-sm text-zinc-300">
-                        {call.createdAt?.toDate ? call.createdAt.toDate().toLocaleDateString() : "Recent"}
+                        {call.createdAt?.toDate
+                          ? call.createdAt.toDate().toLocaleDateString()
+                          : "Recent"}
                       </span>
                       <span className="text-[11px] text-zinc-600">
-                        {call.createdAt?.toDate ? call.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                        {call.createdAt?.toDate
+                          ? call.createdAt
+                              .toDate()
+                              .toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                          : ""}
                       </span>
                     </div>
                   </TableCell>

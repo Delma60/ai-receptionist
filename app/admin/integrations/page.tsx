@@ -28,7 +28,7 @@ import {
   setDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -202,7 +202,7 @@ export default function AdminIntegrationsPage() {
         updatedAt: new Date().toISOString(),
         iconBg: categoryColors[newItem.category],
         iconColor: categoryColors[newItem.category],
-        status: 'connected',
+        status: "connected",
         features: ["Standard Sync", "Real-time updates"], // default features
       };
       await setDoc(doc(db, "available_integrations", newItem.id), payload).then(
@@ -215,7 +215,6 @@ export default function AdminIntegrationsPage() {
             iconName: "globe",
             published: false,
             comingSoon: false,
-
           });
           toast.success("New integration added to catalog!");
         },
@@ -288,7 +287,6 @@ export default function AdminIntegrationsPage() {
                 Create New App Listing
               </h3>
               <div className="grid grid-cols-2 gap-4">
-               
                 <div className="space-y-1.5">
                   <label className="text-xs text-zinc-400">Display Name</label>
                   <Input
@@ -314,7 +312,7 @@ export default function AdminIntegrationsPage() {
                     className="bg-zinc-900/50 border-white/[0.1]"
                   />
                 </div>
-                 <div className="space-y-1.5">
+                <div className="space-y-1.5">
                   <label className="text-xs text-zinc-400">
                     Slug ID (e.g., salesforce-crm)
                   </label>
@@ -334,7 +332,10 @@ export default function AdminIntegrationsPage() {
                     value={newItem.category}
                     defaultValue="crm"
                     onValueChange={(value) =>
-                      setNewItem({ ...newItem, category: String(value) as IntegrationCategory })
+                      setNewItem({
+                        ...newItem,
+                        category: String(value) as IntegrationCategory,
+                      })
                     }
                   >
                     <SelectTrigger className="bg-zinc-900/50 border-white/[0.1] w-full">

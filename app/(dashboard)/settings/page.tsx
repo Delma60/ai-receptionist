@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -658,12 +658,16 @@ export default function SettingsPage() {
                     </>
                   ) : (
                     <div className="flex flex-1 items-center justify-between rounded-lg border border-dashed border-white/[0.08] px-3 py-2">
-                      <span className="text-[12px] text-zinc-600 italic">No API key generated yet</span>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
+                      <span className="text-[12px] text-zinc-600 italic">
+                        No API key generated yet
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         className="h-7 text-[11px] text-violet-400 hover:text-violet-300"
-                        onClick={() => {/* Logic to call key generation utility */}}
+                        onClick={() => {
+                          /* Logic to call key generation utility */
+                        }}
                       >
                         Generate Key
                       </Button>
