@@ -72,7 +72,7 @@ interface ServiceHealth {
 }
 
 // ── Static service definitions ────────────────────────────────
-const SERVICES: ServiceHealth[] = [
+const INITIAL_SERVICES: ServiceHealth[] = [
   {
     name: "Vapi Voice AI",
     icon: Cpu,
@@ -337,6 +337,7 @@ export default function AdminSettingsPage() {
     "flags",
   );
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
+  const [services, setServices] = useState<ServiceHealth[]>(INITIAL_SERVICES);
   const [config, setConfig] = useState<PlatformConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -486,17 +487,43 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const handleRunHealthCheck = () => {
+  const handleRunHealthCheck = async () => {
     setChecking(true);
-    setTimeout(() => {
-      setChecking(false);
+    try {
+      const res = await fetch("/api/admin/health");
+      if (!res.ok) throw new Error("Health check failed");
+      const data = await res.json();
+
+      // Map API response keys (vapi, twilio, etc) to services state
+      setServices((prev) =>
+        prev.map((s) => {
+          // Extract service key (e.g. "Vapi Voice AI" -> "vapi")
+          const key = s.name.split(" ")[0].toLowerCase();
+          const update = data[key];
+
+          if (update) {
+            return {
+              ...s,
+              status: update.status || s.status,
+              latency: update.latency || s.latency,
+              lastChecked: "Just now",
+            };
+          }
+          return { ...s, lastChecked: "Just now" };
+        }),
+      );
+
       setLastFullCheck(new Date().toLocaleTimeString());
-    }, 2200);
+    } catch (err) {
+      console.error("[HealthCheck Error]", err);
+    } finally {
+      setChecking(false);
+    }
   };
 
-  const overallHealth = SERVICES.every((s) => s.status === "operational")
+  const overallHealth = services.every((s) => s.status === "operational")
     ? "operational"
-    : SERVICES.some((s) => s.status === "down")
+    : services.some((s) => s.status === "down")
       ? "down"
       : "degraded";
 
@@ -1053,20 +1080,20 @@ export default function AdminSettingsPage() {
             {[
               {
                 label: "Operational",
-                count: SERVICES.filter((s) => s.status === "operational")
+                count: services.filter((s) => s.status === "operational")
                   .length,
                 color: "text-emerald-400",
                 bg: "bg-emerald-500/10 border-emerald-500/20",
               },
               {
                 label: "Degraded",
-                count: SERVICES.filter((s) => s.status === "degraded").length,
+                count: services.filter((s) => s.status === "degraded").length,
                 color: "text-amber-400",
                 bg: "bg-amber-500/10 border-amber-500/20",
               },
               {
                 label: "Down",
-                count: SERVICES.filter((s) => s.status === "down").length,
+                count: services.filter((s) => s.status === "down").length,
                 color: "text-red-400",
                 bg: "bg-red-500/10 border-red-500/20",
               },
@@ -1087,7 +1114,7 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {SERVICES.map((service) => (
+            {services.map((service) => (
               <ServiceCard key={service.name} service={service} />
             ))}
           </div>
