@@ -134,7 +134,11 @@ export default function AdminOverviewPage() {
     totalMinutesToday: 0,
     mrr: 0,
   });
-  const [planDist, setPlanDist] = useState<PlanDist>({ starter: 0, growth: 0, pro: 0 });
+  const [planDist, setPlanDist] = useState<PlanDist>({
+    starter: 0,
+    growth: 0,
+    pro: 0,
+  });
   const [recentTenants, setRecentTenants] = useState<TenantRow[]>([]);
 
   async function fetchData() {
@@ -144,7 +148,11 @@ export default function AdminOverviewPage() {
         const healthRes = await fetch("/api/admin/health");
         if (healthRes.ok) {
           const healthData = await healthRes.json();
-          setHealth(prev => ({ ...prev, vapi: healthData.vapi, twilio: healthData.twilio }));
+          setHealth((prev) => ({
+            ...prev,
+            vapi: healthData.vapiOk ?? null,
+            twilio: healthData.twilioOk ?? null,
+          }));
         }
       } catch (e) {
         console.error("Health check failed", e);
@@ -181,7 +189,7 @@ export default function AdminOverviewPage() {
       const recent: TenantRow[] = await Promise.all(
         sorted.slice(0, 8).map(async (d) => {
           const callsSnap = await getDocs(
-            collection(db, "tenants", d.id, "calls")
+            collection(db, "tenants", d.id, "calls"),
           );
           return {
             id: d.id,
@@ -191,7 +199,7 @@ export default function AdminOverviewPage() {
             createdAt: d.data().createdAt || null,
             callCount: callsSnap.size,
           };
-        })
+        }),
       );
       setRecentTenants(recent);
 
@@ -204,8 +212,8 @@ export default function AdminOverviewPage() {
         const callsSnap = await getDocs(
           query(
             collectionGroup(db, "calls"),
-            where("createdAt", ">=", Timestamp.fromDate(todayStart))
-          )
+            where("createdAt", ">=", Timestamp.fromDate(todayStart)),
+          ),
         );
         callsToday = callsSnap.size;
         callsSnap.docs.forEach((d) => {
@@ -270,7 +278,9 @@ export default function AdminOverviewPage() {
           disabled={refreshing || loading}
           className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-zinc-900/80 px-3 py-2 text-[13px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+          <RefreshCw
+            className={cn("h-3.5 w-3.5", refreshing && "animate-spin")}
+          />
           Refresh
         </button>
       </div>
@@ -280,7 +290,9 @@ export default function AdminOverviewPage() {
         <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
           <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
           <div>
-            <p className="text-[13px] font-medium text-red-400">Error loading data</p>
+            <p className="text-[13px] font-medium text-red-400">
+              Error loading data
+            </p>
             <p className="text-[12px] text-red-400/70 mt-0.5">{error}</p>
           </div>
         </div>
@@ -368,7 +380,10 @@ export default function AdminOverviewPage() {
                 { key: "pro", color: "bg-violet-500", label: "Pro" },
               ] as const
             ).map(({ key, color, label }) => (
-              <div key={key} className="flex items-center gap-1.5 text-[12px] text-zinc-400">
+              <div
+                key={key}
+                className="flex items-center gap-1.5 text-[12px] text-zinc-400"
+              >
                 <span className={cn("h-2 w-2 rounded-full", color)} />
                 {label}
                 <span className="text-zinc-600">({planDist[key]})</span>
@@ -382,8 +397,12 @@ export default function AdminOverviewPage() {
       <div className="rounded-xl border border-white/[0.06] bg-zinc-900/80 overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
           <div>
-            <h2 className="text-[15px] font-semibold text-white">Recent Tenants</h2>
-            <p className="mt-0.5 text-[12px] text-zinc-500">Newest registered accounts</p>
+            <h2 className="text-[15px] font-semibold text-white">
+              Recent Tenants
+            </h2>
+            <p className="mt-0.5 text-[12px] text-zinc-500">
+              Newest registered accounts
+            </p>
           </div>
           <Link
             href="/admin/tenants"
@@ -409,15 +428,22 @@ export default function AdminOverviewPage() {
         ) : recentTenants.length === 0 ? (
           <div className="py-16 flex flex-col items-center justify-center text-center">
             <Users className="h-8 w-8 text-zinc-700 mb-3" />
-            <p className="text-[14px] font-medium text-zinc-400">No tenants found</p>
-            <p className="text-[12px] text-zinc-600 mt-1">Tenant accounts will appear here</p>
+            <p className="text-[14px] font-medium text-zinc-400">
+              No tenants found
+            </p>
+            <p className="text-[12px] text-zinc-600 mt-1">
+              Tenant accounts will appear here
+            </p>
           </div>
         ) : (
           <>
             {/* Table header */}
             <div className="hidden sm:grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-5 py-2.5 border-b border-white/[0.04]">
               {["Name", "Email", "Plan", "Calls", "Joined"].map((h) => (
-                <p key={h} className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
+                <p
+                  key={h}
+                  className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600"
+                >
                   {h}
                 </p>
               ))}
@@ -435,19 +461,25 @@ export default function AdminOverviewPage() {
                       {t.name[0]}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium text-zinc-200 truncate">{t.name}</p>
-                      <p className="text-[11px] text-zinc-600 sm:hidden">{t.email}</p>
+                      <p className="text-[13px] font-medium text-zinc-200 truncate">
+                        {t.name}
+                      </p>
+                      <p className="text-[11px] text-zinc-600 sm:hidden">
+                        {t.email}
+                      </p>
                     </div>
                   </div>
 
                   {/* Email */}
-                  <p className="hidden sm:block text-[12px] text-zinc-500 truncate">{t.email}</p>
+                  <p className="hidden sm:block text-[12px] text-zinc-500 truncate">
+                    {t.email}
+                  </p>
 
                   {/* Plan badge */}
                   <span
                     className={cn(
                       "inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold capitalize",
-                      planBadge[t.plan] ?? "bg-zinc-800 text-zinc-400"
+                      planBadge[t.plan] ?? "bg-zinc-800 text-zinc-400",
                     )}
                   >
                     {t.plan}
