@@ -1,0 +1,95 @@
+{
+    "integrations":[
+  {
+    "id": "vapi",
+    "name": "Vapi Voice AI",
+    "description": "Core voice intelligence engine for AI receptionist calls.",
+    "icon": "mic",
+    "iconColor": "text-emerald-400",
+    "iconBg": "bg-emerald-500/10 border-emerald-500/20",
+    "fields": [
+      {
+        "key": "vapi_private",
+        "label": "Private API Key",
+        "placeholder": "sk-live-…",
+        "type": "password"
+      }
+    ]
+  },
+  {
+    "id": "twilio",
+    "name": "Twilio Telephony",
+    "description": "SIP trunking, phone number provisioning, and SMS routing.",
+    "icon": "phone",
+    "iconColor": "text-sky-400",
+    "iconBg": "bg-sky-500/10 border-sky-500/20",
+    "fields": [
+      {
+        "key": "twilio_sid",
+        "label": "Account SID",
+        "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "type": "password"
+      },
+      {
+        "key": "twilio_auth_token",
+        "label": "Auth Token",
+        "placeholder": "Your auth token",
+        "type": "password"
+      },
+      {
+        "key": "twilio_phone_number",
+        "label": "Default Phone Number",
+        "placeholder": "+15550001234",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": "stripe",
+    "name": "Stripe Payments",
+    "description": "Subscription billing, invoices, and the customer portal.",
+    "icon": "credit-card",
+    "iconColor": "text-violet-400",
+    "iconBg": "bg-violet-500/10 border-violet-500/20",
+    "fields": [
+      {
+        "key": "stripe_secret",
+        "label": "Secret Key",
+        "placeholder": "sk_live_…",
+        "type": "password"
+      },
+      {
+        "key": "stripe_webhook_secret",
+        "label": "Webhook Secret",
+        "placeholder": "whsec_…",
+        "type": "password"
+      }
+    ]
+  },
+  {
+    "id": "smtp",
+    "name": "SMTP Email",
+    "description": "Outgoing email for notifications, reports, and alerts.",
+    "icon": "mail",
+    "iconColor": "text-yellow-400",
+    "iconBg": "bg-yellow-500/10 border-yellow-500/20",
+    "fields": [
+      {
+        "key": "smtp_host",
+        "label": "SMTP Host",
+        "placeholder": "smtp.example.com",
+        "type": "text"
+      },
+      {
+        "key": "smtp_port",
+        "label": "SMTP Port",
+        "placeholder": "587",
+        "type": "text"
+      },
+      {
+        
+      }
+    ]
+  }
+]
+}

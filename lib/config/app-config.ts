@@ -7,6 +7,11 @@ export interface AppConfig {
   maintenanceMode: boolean;
   defaultTrialDays: number;
   supportEmail: string;
+  integrations?: {
+    [integrationId: string]: {
+      [key: string]: string;
+    }
+  };
 }
 
 /**
@@ -24,6 +29,7 @@ export async function getAppConfig(): Promise<AppConfig> {
       maintenanceMode: data?.maintenanceMode ?? false,
       defaultTrialDays: data?.defaultTrialDays || 14,
       supportEmail: data?.supportEmail || "support@receptionly.ai",
+      integrations: data?.integrations || {},
     };
   } catch (error) {
     console.error("Error fetching app config:", error);

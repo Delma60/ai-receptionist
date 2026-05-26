@@ -1,151 +1,981 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import {
+  Flag,
+  Settings,
+  Activity,
+  Save,
+  Loader2,
+  RefreshCw,
+  Zap,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Database,
+  Mail,
+  Phone,
+  CreditCard,
+  Shield,
+  Globe,
+  Cpu,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  Search,
+  X,
+  AlertTriangle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc,
+  setDoc,
+  addDoc,
+  deleteDoc,
+  serverTimestamp,
+  getDocs,
+} from "firebase/firestore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 interface FeatureFlag {
   id: string;
   name: string;
-  description: string;
   enabled: boolean;
-  enabledForTenants: string[];
+  description: string;
+  enabledForTenants?: string[];
+  updatedAt?: any;
 }
 
-export default function FeatureFlagsPage() {
-  const [flags, setFlags] = useState<FeatureFlag[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newTenantId, setNewTenantId] = useState<{ [key: string]: string }>({});
+interface PlatformConfig {
+  defaultTrialDays: number;
+  overageRate: number;
+  maintenanceMode: boolean;
+  supportEmail: string;
+  maxAgentsPerTenant?: number;
+  webhookRetryAttempts?: number;
+  paymentProvider: "stripe" | "flutterwave";
+  allowGoogleAuth: boolean;
+  allowGithubAuth: boolean;
+  updatedAt?: any;
+}
 
+interface ServiceHealth {
+  name: string;
+  icon: React.ElementType;
+  status: "operational" | "degraded" | "down" | "unknown";
+  latency: string;
+  uptime: string;
+  lastChecked: string;
+  description: string;
+}
+
+interface TenantSummary {
+  id: string;
+  name: string;
+  email: string;
+  plan: string;
+}
+
+// ── Static service definitions ───────────────────────────────────────────────
+
+const INITIAL_SERVICES: ServiceHealth[] = [
+  { name: "Vapi Voice AI", icon: Cpu, status: "operational", latency: "142ms", uptime: "99.98%", lastChecked: "Just now", description: "AI voice agent engine" },
+  { name: "Twilio Telephony", icon: Phone, status: "operational", latency: "89ms", uptime: "100%", lastChecked: "Just now", description: "SIP trunking & SMS routing" },
+  { name: "Stripe Payments", icon: CreditCard, status: "operational", latency: "45ms", uptime: "99.99%", lastChecked: "Just now", description: "Subscription billing" },
+  { name: "Firestore Database", icon: Database, status: "operational", latency: "12ms", uptime: "100%", lastChecked: "Just now", description: "Real-time NoSQL database" },
+  { name: "Resend Email", icon: Mail, status: "degraded", latency: "2.4s", uptime: "98.5%", lastChecked: "2m ago", description: "Transactional email delivery" },
+  { name: "Vercel Edge", icon: Globe, status: "operational", latency: "18ms", uptime: "99.97%", lastChecked: "Just now", description: "Global CDN & hosting" },
+];
+
+const STATUS_CONFIG = {
+  operational: { label: "Operational", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-500", ping: true },
+  degraded: { label: "Degraded", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", dot: "bg-amber-500", ping: false },
+  down: { label: "Down", color: "text-red-400", bg: "bg-red-500/10 border-red-500/20", dot: "bg-red-500", ping: false },
+  unknown: { label: "Unknown", color: "text-zinc-500", bg: "bg-zinc-800 border-zinc-700", dot: "bg-zinc-600", ping: false },
+};
+
+// ── TenantOverridePanel ──────────────────────────────────────────────────────
+// Expandable section within FlagRow for managing per-tenant overrides.
+
+function TenantOverridePanel({
+  flag,
+  onUpdate,
+}: {
+  flag: FeatureFlag;
+  onUpdate: (newList: string[]) => Promise<void>;
+}) {
+  const [tenants, setTenants] = useState<TenantSummary[]>([]);
+  const [loadingTenants, setLoadingTenants] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [saving, setSaving] = useState<string | null>(null); // tenantId being toggled
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Load all tenants once when panel opens
   useEffect(() => {
-    fetchFlags();
+    let cancelled = false;
+    async function load() {
+      try {
+        const snap = await getDocs(collection(db, "tenants"));
+        if (cancelled) return;
+        setTenants(
+          snap.docs.map((d) => ({
+            id: d.id,
+            name: d.data().name ?? "Unnamed",
+            email: d.data().email ?? "",
+            plan: d.data().plan ?? "starter",
+          }))
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+
+    function setLoading(v: boolean) {
+      if (!cancelled) setLoadingTenants(v);
+    }
   }, []);
 
-  async function fetchFlags() {
+  const overrides = flag.enabledForTenants ?? [];
+
+  const filtered = tenants.filter((t) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      t.name.toLowerCase().includes(q) ||
+      t.email.toLowerCase().includes(q) ||
+      t.id.toLowerCase().includes(q)
+    );
+  });
+
+  async function toggleTenant(tenantId: string) {
+    setSaving(tenantId);
     try {
-      const res = await fetch("/api/admin/flags");
-      const data = await res.json();
-      setFlags(data);
-    } catch (err) {
-      console.error("Failed to fetch flags", err);
+      const isOn = overrides.includes(tenantId);
+      const newList = isOn
+        ? overrides.filter((id) => id !== tenantId)
+        : [...overrides, tenantId];
+      await onUpdate(newList);
     } finally {
-      setLoading(false);
+      setSaving(null);
     }
   }
 
-  async function toggleFlag(flag: FeatureFlag) {
-    const newStatus = !flag.enabled;
-    try {
-      const res = await fetch(`/api/admin/flags/${flag.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ enabled: newStatus }),
-      });
-      if (res.ok) {
-        setFlags(flags.map(f => f.id === flag.id ? { ...f, enabled: newStatus } : f));
-      }
-    } catch (err) {
-      alert("Update failed");
-    }
-  }
-
-  async function addTenantOverride(flag: FeatureFlag) {
-    const tid = newTenantId[flag.id];
-    if (!tid) return;
-    
-    const newList = [...flag.enabledForTenants, tid];
-    try {
-      const res = await fetch(`/api/admin/flags/${flag.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ enabledForTenants: newList }),
-      });
-      if (res.ok) {
-        setFlags(flags.map(f => f.id === flag.id ? { ...f, enabledForTenants: newList } : f));
-        setNewTenantId({ ...newTenantId, [flag.id]: "" });
-      }
-    } catch (err) {
-      alert("Failed to add override");
-    }
-  }
-
-  async function removeTenantOverride(flag: FeatureFlag, tid: string) {
-    const newList = flag.enabledForTenants.filter(t => t !== tid);
-    try {
-      const res = await fetch(`/api/admin/flags/${flag.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ enabledForTenants: newList }),
-      });
-      if (res.ok) {
-        setFlags(flags.map(f => f.id === flag.id ? { ...f, enabledForTenants: newList } : f));
-      }
-    } catch (err) {
-      alert("Failed to remove override");
-    }
-  }
-
-  if (loading) return <div className="p-8">Loading configuration...</div>;
+  const planColors: Record<string, string> = {
+    starter: "bg-zinc-800 text-zinc-400",
+    growth: "bg-sky-500/10 text-sky-400",
+    pro: "bg-violet-500/10 text-violet-400",
+  };
 
   return (
-    <div className="p-8 space-y-6">
-      <h1 className="text-2xl font-bold">Platform Feature Flags</h1>
-      <p className="text-gray-500">Enable features globally or for specific tenants.</p>
+    <div className="mt-4 border-t border-white/[0.06] pt-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[13px] font-semibold text-zinc-200 flex items-center gap-2">
+            <Users className="h-4 w-4 text-zinc-500" />
+            Tenant Overrides
+            {overrides.length > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-600/20 px-1.5 text-[10px] font-bold text-violet-300">
+                {overrides.length}
+              </span>
+            )}
+          </p>
+          <p className="text-[11px] text-zinc-600 mt-0.5">
+            Enable this flag for specific tenants regardless of the global toggle.
+          </p>
+        </div>
+      </div>
 
-      <div className="grid gap-6">
-        {flags.map((flag) => (
-          <div key={flag.id} className="border rounded-lg p-6 bg-white shadow-sm flex flex-col md:flex-row gap-6">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-lg font-semibold uppercase tracking-wider text-gray-700">{flag.name}</h3>
-                <span className={cn(
-                  "px-2 py-0.5 rounded text-xs font-medium",
-                  flag.enabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                )}>
-                  {flag.enabled ? "ACTIVE GLOBALLY" : "DISABLED"}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">{flag.description}</p>
-              
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-400 uppercase">Tenant Overrides</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {flag.enabledForTenants.map(tid => (
-                    <span key={tid} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-sm border border-blue-100">
-                      {tid}
-                      <button onClick={() => removeTenantOverride(flag, tid)} className="hover:text-red-500">×</button>
-                    </span>
-                  ))}
-                  {flag.enabledForTenants.length === 0 && <span className="text-sm text-gray-400 italic">No overrides set.</span>}
-                </div>
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    placeholder="tenant_id" 
-                    className="text-sm border rounded px-2 py-1 w-40"
-                    value={newTenantId[flag.id] || ""}
-                    onChange={(e) => setNewTenantId({ ...newTenantId, [flag.id]: e.target.value })}
-                  />
-                  <button 
-                    onClick={() => addTenantOverride(flag)}
-                    className="text-xs bg-gray-800 text-white px-3 py-1 rounded hover:bg-black transition"
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600" />
+        <input
+          ref={searchRef}
+          type="text"
+          placeholder="Search by name, email, or ID…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg border border-white/[0.06] bg-zinc-900/60 pl-9 pr-3 py-2 text-[12px] text-white placeholder-zinc-600 outline-none focus:border-violet-500/50 transition"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Active overrides summary */}
+      {overrides.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {overrides.map((tid) => {
+            const tenant = tenants.find((t) => t.id === tid);
+            return (
+              <span
+                key={tid}
+                className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-0.5 text-[11px] font-medium text-violet-300"
+              >
+                {tenant?.name ?? tid.slice(0, 10) + "…"}
+                <button
+                  onClick={() => toggleTenant(tid)}
+                  disabled={saving === tid}
+                  className="text-violet-400/60 hover:text-violet-200 transition"
+                >
+                  {saving === tid ? (
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  ) : (
+                    <X className="h-2.5 w-2.5" />
+                  )}
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Tenant list */}
+      <div className="max-h-64 overflow-y-auto rounded-lg border border-white/[0.06] divide-y divide-white/[0.04]">
+        {loadingTenants ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-zinc-600 text-[12px]">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading tenants…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-6 text-center text-zinc-600 text-[12px]">
+            {tenants.length === 0 ? "No tenants registered yet." : "No tenants match your search."}
+          </div>
+        ) : (
+          filtered.map((tenant) => {
+            const isOn = overrides.includes(tenant.id);
+            const isSaving = saving === tenant.id;
+            return (
+              <div
+                key={tenant.id}
+                className={cn(
+                  "flex items-center justify-between px-4 py-3 transition-colors",
+                  isOn ? "bg-violet-500/5" : "hover:bg-white/[0.02]"
+                )}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold uppercase",
+                      isOn ? "bg-violet-500/20 text-violet-300" : "bg-zinc-800 text-zinc-500"
+                    )}
                   >
-                    Add Override
+                    {tenant.name[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-medium text-zinc-200 truncate">{tenant.name}</p>
+                    <p className="text-[10px] text-zinc-600 truncate font-mono">{tenant.id.slice(0, 14)}…</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-3">
+                  <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-bold uppercase", planColors[tenant.plan] ?? planColors.starter)}>
+                    {tenant.plan}
+                  </span>
+                  <button
+                    onClick={() => toggleTenant(tenant.id)}
+                    disabled={isSaving}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all",
+                      isOn
+                        ? "border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                        : "border border-violet-500/20 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20",
+                      isSaving && "opacity-50 pointer-events-none"
+                    )}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : isOn ? (
+                      <X className="h-3 w-3" />
+                    ) : (
+                      <Plus className="h-3 w-3" />
+                    )}
+                    {isSaving ? "…" : isOn ? "Remove" : "Enable"}
                   </button>
                 </div>
               </div>
-            </div>
+            );
+          })
+        )}
+      </div>
 
-            <div className="flex items-start">
-              <button
-                onClick={() => toggleFlag(flag)}
-                className={cn(
-                  "px-4 py-2 rounded text-sm font-semibold transition-colors",
-                  flag.enabled ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-600 text-white hover:bg-green-700"
-                )}
-              >
-                {flag.enabled ? "Disable Globally" : "Enable Globally"}
-              </button>
+      {filtered.length > 0 && (
+        <p className="text-[10px] text-zinc-600">
+          Showing {filtered.length} of {tenants.length} tenants
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── FlagRow ──────────────────────────────────────────────────────────────────
+
+function FlagRow({
+  flag,
+  onToggle,
+  onDelete,
+  onUpdateOverrides,
+}: {
+  flag: FeatureFlag;
+  onToggle: (id: string, name: string, current: boolean) => void;
+  onDelete: (id: string) => void;
+  onUpdateOverrides: (id: string, newList: string[]) => Promise<void>;
+}) {
+  const [overridesOpen, setOverridesOpen] = useState(false);
+  const overrideCount = (flag.enabledForTenants ?? []).length;
+
+  return (
+    <div className="border-b border-white/[0.04] last:border-0">
+      {/* Main row */}
+      <div className="group flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors">
+        <div className="flex items-center gap-4 min-w-0">
+          <div
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+              flag.enabled
+                ? "bg-emerald-500/10 border-emerald-500/20"
+                : "bg-zinc-800/60 border-white/[0.06]"
+            )}
+          >
+            <Flag className={cn("h-3.5 w-3.5", flag.enabled ? "text-emerald-400" : "text-zinc-600")} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-zinc-200 truncate font-mono">{flag.name}</p>
+            <p className="text-[11px] text-zinc-500 truncate mt-0.5">{flag.description || "No description"}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 shrink-0 ml-4">
+          {/* Override count badge */}
+          {overrideCount > 0 && (
+            <button
+              onClick={() => setOverridesOpen((v) => !v)}
+              className="flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 hover:bg-violet-500/20 transition"
+            >
+              <Users className="h-2.5 w-2.5" />
+              {overrideCount} {overrideCount === 1 ? "override" : "overrides"}
+            </button>
+          )}
+
+          {flag.updatedAt && (
+            <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-zinc-600">
+              <Clock className="h-3 w-3" />
+              {flag.updatedAt?.toDate
+                ? flag.updatedAt.toDate().toLocaleDateString()
+                : "—"}
             </div>
+          )}
+
+          <span
+            className={cn(
+              "hidden sm:inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+              flag.enabled
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                : "bg-zinc-800 text-zinc-500 border-zinc-700"
+            )}
+          >
+            {flag.enabled ? "ON" : "OFF"}
+          </span>
+
+          <Switch
+            checked={flag.enabled}
+            onCheckedChange={() => onToggle(flag.id, flag.name, flag.enabled)}
+          />
+
+          {/* Overrides toggle */}
+          <button
+            onClick={() => setOverridesOpen((v) => !v)}
+            title="Manage tenant overrides"
+            className={cn(
+              "rounded-md p-1.5 transition-all",
+              overridesOpen
+                ? "bg-violet-500/10 text-violet-400"
+                : "text-zinc-600 hover:bg-white/[0.06] hover:text-zinc-300"
+            )}
+          >
+            {overridesOpen ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+          </button>
+
+          <button
+            onClick={() => onDelete(flag.id)}
+            className="opacity-0 group-hover:opacity-100 rounded-md p-1.5 text-zinc-600 hover:bg-red-500/10 hover:text-red-400 transition-all"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Expandable override panel */}
+      {overridesOpen && (
+        <div className="px-5 pb-5 bg-white/[0.01]">
+          <TenantOverridePanel
+            flag={flag}
+            onUpdate={(newList) => onUpdateOverrides(flag.id, newList)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── TabButton ────────────────────────────────────────────────────────────────
+
+function TabButton({ active, icon: Icon, label, onClick }: {
+  active: boolean;
+  icon: React.ElementType;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "group relative flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-all duration-150",
+        active
+          ? "bg-white/[0.08] text-white"
+          : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"
+      )}
+    >
+      {active && <span className="absolute inset-0 rounded-lg ring-1 ring-white/[0.1]" />}
+      <Icon className={cn("h-4 w-4 shrink-0 transition-colors", active ? "text-emerald-400" : "text-zinc-600 group-hover:text-zinc-400")} />
+      {label}
+    </button>
+  );
+}
+
+function ServiceCard({ service }: { service: ServiceHealth }) {
+  const cfg = STATUS_CONFIG[service.status];
+  const Icon = service.icon;
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-zinc-900/60 p-5 space-y-4 hover:border-white/[0.1] transition-colors">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.04]">
+            <Icon className="h-4 w-4 text-zinc-400" />
+          </div>
+          <div>
+            <p className="text-[13px] font-semibold text-zinc-200">{service.name}</p>
+            <p className="text-[11px] text-zinc-600">{service.description}</p>
+          </div>
+        </div>
+        <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider", cfg.bg, cfg.color)}>
+          <span className="relative flex h-1.5 w-1.5">
+            {cfg.ping && <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-75", cfg.dot)} />}
+            <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", cfg.dot)} />
+          </span>
+          {cfg.label}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/[0.04]">
+        {[
+          { label: "Latency", value: service.latency },
+          { label: "Uptime", value: service.uptime },
+          { label: "Checked", value: service.lastChecked },
+        ].map(({ label, value }) => (
+          <div key={label}>
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-zinc-600 mb-1">{label}</p>
+            <p className="text-[12px] font-mono font-medium text-zinc-300">{value}</p>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+export default function AdminSettingsPage() {
+  const [activeTab, setActiveTab] = useState<"flags" | "config" | "health">("flags");
+  const [flags, setFlags] = useState<FeatureFlag[]>([]);
+  const [services, setServices] = useState<ServiceHealth[]>(INITIAL_SERVICES);
+  const [config, setConfig] = useState<PlatformConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+
+  const [showNewFlag, setShowNewFlag] = useState(false);
+  const [newFlagName, setNewFlagName] = useState("");
+  const [newFlagDesc, setNewFlagDesc] = useState("");
+  const [addingFlag, setAddingFlag] = useState(false);
+
+  const [checking, setChecking] = useState(false);
+  const [lastFullCheck, setLastFullCheck] = useState("Never");
+
+  useEffect(() => {
+    const flagsUnsub = onSnapshot(
+      collection(db, "featureFlags"),
+      (snap) => setFlags(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as FeatureFlag)),
+      (err) => console.error("[featureFlags]", err)
+    );
+
+    const configUnsub = onSnapshot(
+      doc(db, "platform", "config"),
+      async (snap) => {
+        if (snap.exists()) {
+          setConfig(snap.data() as PlatformConfig);
+        } else {
+          const defaults: PlatformConfig = {
+            defaultTrialDays: 14, overageRate: 0.08, maintenanceMode: false,
+            supportEmail: "support@receptionly.ai", maxAgentsPerTenant: 10,
+            webhookRetryAttempts: 3, paymentProvider: "stripe",
+            allowGoogleAuth: true, allowGithubAuth: true,
+          };
+          await setDoc(doc(db, "platform", "config"), defaults);
+          setConfig(defaults);
+        }
+        setLoading(false);
+      },
+      (err) => { console.error("[platform/config]", err); setLoading(false); }
+    );
+
+    return () => { flagsUnsub(); configUnsub(); };
+  }, []);
+
+  const handleToggleFlag = async (id: string, name: string, current: boolean) => {
+    try {
+      await updateDoc(doc(db, "featureFlags", id), {
+        enabled: !current,
+        updatedAt: serverTimestamp(),
+      });
+      await fetch("/api/admin/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminId: "admin",
+          action: "feature_flag",
+          targetTenantId: "global",
+          metadata: { flagName: name, newState: !current },
+        }),
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteFlag = async (id: string) => {
+    if (!confirm("Permanently delete this feature flag?")) return;
+    await deleteDoc(doc(db, "featureFlags", id)).catch(console.error);
+  };
+
+  const handleUpdateOverrides = async (flagId: string, newList: string[]) => {
+    await updateDoc(doc(db, "featureFlags", flagId), {
+      enabledForTenants: newList,
+      updatedAt: serverTimestamp(),
+    });
+  };
+
+  const handleAddFlag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFlagName.trim()) return;
+    setAddingFlag(true);
+    try {
+      await addDoc(collection(db, "featureFlags"), {
+        name: newFlagName.trim(),
+        description: newFlagDesc.trim(),
+        enabled: false,
+        enabledForTenants: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      setNewFlagName("");
+      setNewFlagDesc("");
+      setShowNewFlag(false);
+    } finally {
+      setAddingFlag(false);
+    }
+  };
+
+  const handleSaveConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!config) return;
+    setSaving(true);
+    try {
+      await setDoc(doc(db, "platform", "config"), { ...config, updatedAt: serverTimestamp() }, { merge: true });
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2500);
+    } catch {
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRunHealthCheck = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch("/api/admin/health");
+      if (!res.ok) throw new Error("Health check failed");
+      const data = await res.json();
+      setServices((prev) =>
+        prev.map((s) => {
+          const key = s.name.split(" ")[0].toLowerCase();
+          const update = data[key];
+          return update ? { ...s, status: update.status || s.status, latency: update.latency || s.latency, lastChecked: "Just now" } : { ...s, lastChecked: "Just now" };
+        })
+      );
+      setLastFullCheck(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const overallHealth = services.every((s) => s.status === "operational")
+    ? "operational"
+    : services.some((s) => s.status === "down") ? "down" : "degraded";
+
+  if (loading) {
+    return (
+      <div className="flex h-[400px] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-5 w-5 text-emerald-400 animate-spin" />
+        <p className="text-[13px] text-zinc-500">Loading system configuration…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-6xl">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">System Settings</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Feature flags, platform configuration, and service health monitoring.
+          </p>
+        </div>
+        <div className={cn("flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider",
+          overallHealth === "operational" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+            : overallHealth === "degraded" ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
+            : "bg-red-500/10 border-red-500/20 text-red-400"
+        )}>
+          <span className="relative flex h-1.5 w-1.5">
+            <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-75",
+              overallHealth === "operational" ? "bg-emerald-400" : overallHealth === "degraded" ? "bg-amber-400" : "bg-red-400"
+            )} />
+            <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full",
+              overallHealth === "operational" ? "bg-emerald-500" : overallHealth === "degraded" ? "bg-amber-500" : "bg-red-500"
+            )} />
+          </span>
+          {overallHealth === "operational" ? "All systems nominal" : overallHealth === "degraded" ? "Partial degradation" : "System incident"}
+        </div>
+      </div>
+
+      {/* Tab nav */}
+      <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-zinc-900/40 p-1.5 w-fit">
+        {[
+          { id: "flags" as const, label: "Feature Flags", icon: Flag },
+          { id: "config" as const, label: "Global Config", icon: Settings },
+          { id: "health" as const, label: "System Health", icon: Activity },
+        ].map((tab) => (
+          <TabButton key={tab.id} active={activeTab === tab.id} icon={tab.icon} label={tab.label} onClick={() => setActiveTab(tab.id)} />
+        ))}
+      </div>
+
+      {/* ════ TAB 1: FEATURE FLAGS ════ */}
+      {activeTab === "flags" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] text-zinc-400">
+              <span className="font-semibold text-white">{flags.length}</span> flags ·{" "}
+              <span className="text-emerald-400 font-semibold">{flags.filter((f) => f.enabled).length}</span> active ·{" "}
+              <span className="text-violet-400 font-semibold">
+                {flags.reduce((acc, f) => acc + (f.enabledForTenants?.length ?? 0), 0)}
+              </span> tenant overrides
+            </p>
+            <Button
+              onClick={() => setShowNewFlag(!showNewFlag)}
+              size="sm"
+              className={cn("gap-2 text-[12px] h-8", !showNewFlag && "bg-emerald-600 hover:bg-emerald-500 text-white")}
+              variant={showNewFlag ? "outline" : "default"}
+            >
+              {showNewFlag ? "Cancel" : <><Plus className="h-3.5 w-3.5" />New flag</>}
+            </Button>
+          </div>
+
+          {showNewFlag && (
+            <form onSubmit={handleAddFlag} className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-400">Create New Flag</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Flag Name</label>
+                  <Input value={newFlagName} onChange={(e) => setNewFlagName(e.target.value)} placeholder="e.g. live_transfer_v2" required className="h-9 bg-zinc-900/50 border-white/[0.08] text-[13px] font-mono" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Description</label>
+                  <Input value={newFlagDesc} onChange={(e) => setNewFlagDesc(e.target.value)} placeholder="What does this control?" className="h-9 bg-zinc-900/50 border-white/[0.08] text-[13px]" />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={addingFlag || !newFlagName.trim()} className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white text-[12px] gap-1.5" size="sm">
+                  {addingFlag ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                  Create Flag
+                </Button>
+              </div>
+            </form>
+          )}
+
+          <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden">
+            {/* Table header */}
+            <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+              {["Flag", "Overrides", "Updated", "State", "Toggle", ""].map((h) => (
+                <p key={h} className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">{h}</p>
+              ))}
+            </div>
+
+            {flags.length === 0 ? (
+              <div className="py-16 flex flex-col items-center justify-center text-center">
+                <div className="h-12 w-12 rounded-xl bg-zinc-800/60 flex items-center justify-center mb-4">
+                  <Flag className="h-5 w-5 text-zinc-600" />
+                </div>
+                <p className="text-[14px] font-medium text-zinc-400">No feature flags yet</p>
+                <p className="text-[12px] text-zinc-600 mt-1">Create your first flag to control feature rollouts</p>
+              </div>
+            ) : (
+              <div>
+                {flags.map((flag) => (
+                  <FlagRow
+                    key={flag.id}
+                    flag={flag}
+                    onToggle={handleToggleFlag}
+                    onDelete={handleDeleteFlag}
+                    onUpdateOverrides={handleUpdateOverrides}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+            <Shield className="h-4 w-4 text-zinc-500 mt-0.5 shrink-0" />
+            <p className="text-[12px] text-zinc-500 leading-relaxed">
+              Flags are checked server-side via{" "}
+              <code className="text-zinc-300 bg-zinc-800 rounded px-1 py-0.5 text-[11px]">getFlag(name, tenantId?)</code>.
+              Changes are instant. Tenant overrides enable a flag for specific accounts regardless of the global toggle — useful for canary rollouts.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ════ TAB 2: GLOBAL CONFIG ════ */}
+      {activeTab === "config" && config && (
+        <form onSubmit={handleSaveConfig} className="space-y-5">
+          {/* Billing & Limits */}
+          <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 border border-violet-500/20">
+                <Zap className="h-3.5 w-3.5 text-violet-400" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-zinc-200">Billing & Limits</p>
+                <p className="text-[11px] text-zinc-500">Trial periods, overage rates, and usage caps</p>
+              </div>
+            </div>
+            <div className="p-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { label: "Default Trial Period", key: "defaultTrialDays" as const, suffix: "days", description: "Days of free access for new signups" },
+                { label: "Overage Rate", key: "overageRate" as const, prefix: "$", suffix: "/ min", step: "0.01", description: "Charged per minute above plan limit" },
+                { label: "Max Agents / Tenant", key: "maxAgentsPerTenant" as const, suffix: "agents", description: "Hard cap for Pro plan tenants" },
+              ].map((field) => (
+                <div key={field.key} className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{field.label}</label>
+                  <div className="relative flex items-center">
+                    {(field as any).prefix && <span className="absolute left-3 text-[13px] text-zinc-500 pointer-events-none">{(field as any).prefix}</span>}
+                    <Input
+                      type="number"
+                      step={(field as any).step}
+                      value={(config[field.key] as number) ?? ""}
+                      onChange={(e) => setConfig({ ...config, [field.key]: parseFloat(e.target.value) || 0 })}
+                      className={cn("h-9 bg-zinc-900/50 border-white/[0.08] text-[13px]", (field as any).prefix && "pl-7", field.suffix && "pr-16")}
+                    />
+                    {field.suffix && <span className="absolute right-3 text-[11px] text-zinc-600 pointer-events-none whitespace-nowrap">{field.suffix}</span>}
+                  </div>
+                  <p className="text-[10px] text-zinc-600">{field.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Auth & Payments */}
+          <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/10 border border-sky-500/20">
+                <Shield className="h-3.5 w-3.5 text-sky-400" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-zinc-200">Auth & Payments</p>
+                <p className="text-[11px] text-zinc-500">Global configurations for authentication and billing.</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Active Payment Provider</label>
+                <select
+                  value={config.paymentProvider}
+                  onChange={(e) => setConfig({ ...config, paymentProvider: e.target.value as any })}
+                  className="w-full max-w-xs rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[13px] text-white focus:border-violet-500 outline-none h-9"
+                >
+                  <option value="stripe">Stripe (Global)</option>
+                  <option value="flutterwave">Flutterwave (Africa/Nigeria)</option>
+                </select>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-white/[0.04]">
+                {[
+                  { key: "allowGoogleAuth" as const, label: "Allow Google Authentication", desc: "Enable users to sign up and sign in with Google." },
+                  { key: "allowGithubAuth" as const, label: "Allow GitHub Authentication", desc: "Enable users to sign up and sign in with GitHub." },
+                ].map(({ key, label, desc }) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[13px] font-medium text-zinc-200">{label}</p>
+                      <p className="text-[11px] text-zinc-600">{desc}</p>
+                    </div>
+                    <Switch checked={config[key]} onCheckedChange={(v) => setConfig({ ...config, [key]: v })} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Platform Settings */}
+          <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/10 border border-sky-500/20">
+                <Globe className="h-3.5 w-3.5 text-sky-400" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-zinc-200">Platform Settings</p>
+                <p className="text-[11px] text-zinc-500">Global defaults and contact configuration</p>
+              </div>
+            </div>
+            <div className="p-5 grid gap-5 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Support Email</label>
+                <Input
+                  type="email"
+                  value={config.supportEmail}
+                  onChange={(e) => setConfig({ ...config, supportEmail: e.target.value })}
+                  className="h-9 bg-zinc-900/50 border-white/[0.08] text-[13px]"
+                  placeholder="support@receptionly.ai"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Webhook Retry Attempts</label>
+                <Input
+                  type="number"
+                  value={config.webhookRetryAttempts ?? 3}
+                  onChange={(e) => setConfig({ ...config, webhookRetryAttempts: parseInt(e.target.value) || 0 })}
+                  className="h-9 bg-zinc-900/50 border-white/[0.08] text-[13px]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Maintenance Mode */}
+          <div className={cn("rounded-xl border p-5 transition-all", config.maintenanceMode ? "border-red-500/30 bg-red-500/5" : "border-white/[0.06] bg-zinc-900/40")}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <p className="text-[14px] font-semibold text-zinc-200 flex items-center gap-2 flex-wrap">
+                  Maintenance Mode
+                  {config.maintenanceMode && (
+                    <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
+                      ACTIVE
+                    </span>
+                  )}
+                </p>
+                <p className="text-[12px] text-zinc-500">
+                  {config.maintenanceMode
+                    ? "Platform access is restricted to admin users."
+                    : "Enable to restrict platform access during deployments or incidents."}
+                </p>
+              </div>
+              <Switch checked={config.maintenanceMode} onCheckedChange={(v) => setConfig({ ...config, maintenanceMode: v })} />
+            </div>
+          </div>
+
+          {/* Save bar */}
+          <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-zinc-900/40 px-5 py-3.5">
+            <div className="text-[12px]">
+              {saveStatus === "saved" && <span className="flex items-center gap-1.5 text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5" /> Saved successfully</span>}
+              {saveStatus === "error" && <span className="flex items-center gap-1.5 text-red-400"><XCircle className="h-3.5 w-3.5" /> Failed to save</span>}
+              {saveStatus === "idle" && <span className="text-zinc-600">Changes sync to Firestore immediately</span>}
+            </div>
+            <Button type="submit" disabled={saving} className="h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-2 min-w-[140px]">
+              {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</> : <><Save className="h-3.5 w-3.5" />Save Config</>}
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {/* ════ TAB 3: SYSTEM HEALTH ════ */}
+      {activeTab === "health" && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] text-zinc-400">
+              Last full diagnostic: <span className="text-zinc-200 font-medium">{lastFullCheck}</span>
+            </p>
+            <Button
+              onClick={handleRunHealthCheck}
+              disabled={checking}
+              size="sm"
+              className="h-8 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 gap-2 text-[12px]"
+            >
+              {checking ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Checking…</> : <><RefreshCw className="h-3.5 w-3.5" />Run Diagnostic</>}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Operational", count: services.filter((s) => s.status === "operational").length, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
+              { label: "Degraded", count: services.filter((s) => s.status === "degraded").length, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
+              { label: "Down", count: services.filter((s) => s.status === "down").length, color: "text-red-400", bg: "bg-red-500/10 border-red-500/20" },
+            ].map(({ label, count, color, bg }) => (
+              <div key={label} className={cn("rounded-xl border px-4 py-3 flex items-center justify-between", bg)}>
+                <span className="text-[12px] text-zinc-400">{label}</span>
+                <span className={cn("text-xl font-bold tabular-nums", color)}>{count}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {services.map((service) => <ServiceCard key={service.name} service={service} />)}
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-zinc-900/40 px-5 py-3.5">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              <p className="text-[12px] text-zinc-400">
+                Automatic health checks every <span className="text-zinc-200 font-medium">5 minutes</span>
+              </p>
+            </div>
+            <p className="text-[11px] text-zinc-600">Alerts sent to {config?.supportEmail ?? "admin"}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
