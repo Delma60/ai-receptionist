@@ -202,10 +202,12 @@ function FlagRow({
   flag,
   onToggle,
   onDelete,
+  onUpdateOverrides,
 }: {
   flag: FeatureFlag;
-  onToggle: (id: string, current: boolean) => void;
+  onToggle: (id: string, name: string, current: boolean) => void;
   onDelete: (id: string) => void;
+  onUpdateOverrides: (id: string, newList: string[]) => void;
 }) {
   return (
     <div className="group flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors">
@@ -255,8 +257,18 @@ function FlagRow({
         </span>
         <Switch
           checked={flag.enabled}
-          onCheckedChange={() => onToggle(flag.id, flag.enabled)}
+          onCheckedChange={() => onToggle(flag.id, flag.name, flag.enabled)}
         />
+        <Button
+          onClick={() =>
+            onUpdateOverrides(flag.id, flag.enabledForTenants || [])
+          }
+          size="sm"
+          variant="outline"
+          className="h-8"
+        >
+          Manage Overrides
+        </Button>
         <button
           onClick={() => onDelete(flag.id)}
           className="opacity-0 group-hover:opacity-100 rounded-md p-1.5 text-zinc-600 hover:bg-red-500/10 hover:text-red-400 transition-all"
@@ -429,6 +441,13 @@ export default function AdminSettingsPage() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleUpdateOverrides = async (flagId: string, newList: string[]) => {
+    await updateDoc(doc(db, "featureFlags", flagId), {
+      enabledForTenants: newList,
+      updatedAt: serverTimestamp(),
+    });
   };
 
   const handleDeleteFlag = async (id: string) => {
@@ -726,6 +745,7 @@ export default function AdminSettingsPage() {
                     flag={flag}
                     onToggle={handleToggleFlag}
                     onDelete={handleDeleteFlag}
+                    onUpdateOverrides={handleUpdateOverrides}
                   />
                 ))}
               </div>

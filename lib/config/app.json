@@ -45,6 +45,22 @@
     ]
   },
   {
+    "id": "flutterwave",
+    "name": "Flutterwave Payments",
+    "description": "Subscription billing, invoices, and the customer portal.",
+    "icon": "credit-card",
+    "iconColor": "text-orange-400",
+    "iconBg": "bg-orange-500/10 border-orange-500/20",
+    "fields": [
+        {
+            "key": "flutterwave_secret",
+            "label": "Secret Key",
+            "placeholder": "FLWSECK-…",
+            "type": "password"
+        }
+        ]
+  },
+  {
     "id": "stripe",
     "name": "Stripe Payments",
     "description": "Subscription billing, invoices, and the customer portal.",
