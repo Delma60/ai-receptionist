@@ -103,8 +103,17 @@
         "type": "text"
       },
       {
-        
-      }
+        "key": "smtp_user",
+        "label": "SMTP Username",
+        "placeholder": "username",
+        "type": "text"
+      },
+        {
+            "key": "smtp_pass",
+            "label": "SMTP Password",
+            "placeholder": "password",
+            "type": "password"
+        }
     ]
   }
 ]

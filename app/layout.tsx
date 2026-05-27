@@ -31,6 +31,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script src="https://cdn.vapi.ai/vapi.js" strategy="afterInteractive" />
+      </head>
       <body
         className={cn(
           "min-h-full flex flex-col",

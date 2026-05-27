@@ -30,6 +30,7 @@ import {
   where,
   Timestamp,
 } from "firebase/firestore";
+import { TestCallButton } from "@/components/call/test-call-button";
 
 // ── Types ────────────────────────────────────
 type Outcome = "booked" | "transferred" | "message" | "unanswered";
@@ -322,12 +323,10 @@ export default function DashboardPage() {
             id: d.id,
             caller: data.callerNumber || "Unknown",
             time: data.createdAt?.toDate
-              ? data.createdAt
-                  .toDate()
-                  .toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
+              ? data.createdAt.toDate().toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
               : "Recent",
             duration: data.duration ? fmtDuration(data.duration) : "0s",
             outcome: data.outcome || "unanswered",
@@ -555,19 +554,8 @@ export default function DashboardPage() {
               ))}
             </div>
             <div className="mt-4 flex gap-2">
-              <button
-                onClick={async () => {
-                  if (!activeAgent) return;
-                  alert(`Initiating web call for ${activeAgent.name}...`);
-                  if ((window as any).vapi) {
-                    (window as any).vapi.start(activeAgent.id);
-                  }
-                }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
-              >
-                <Play className="h-3 w-3" />
-                Test call
-              </button>
+              <TestCallButton agentId={activeAgent.id} />
+
               {activeAgent && (
                 <a
                   href={`/agents/${activeAgent.id}`}

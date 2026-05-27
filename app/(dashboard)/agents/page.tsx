@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { db, auth } from "@/lib/firebase";
 import { collection, onSnapshot, query } from "firebase/firestore";
+import { TestCallButton } from "@/components/call/test-call-button";
 
 // ── Types ─────────────────────────────────────────────
 type AgentStatus = "active" | "inactive" | "draft";
@@ -109,27 +110,7 @@ function AgentCard({
     }
   };
 
-  // Test call: opens the Vapi web call widget or shows a placeholder
-  const handleTestCall = async () => {
-    setIsTesting(true);
-    setMenuOpen(false);
-    try {
-      // Logic to initiate Vapi Web SDK call
-      // Assuming Vapi is initialized globally or via a hook in a parent provider
-      const res = await fetch(`/api/agents/${agent.id}/web-token`);
-      const { token } = await res.json();
-      
-      if (token && (window as any).vapi) {
-        (window as any).vapi.start(token);
-      } else {
-        alert(`Agent ID: ${agent.id}\nWeb calling is being initialized. Use the provisioned number: ${agent.phoneNumber || 'N/A'}`);
-      }
-    } catch (err) {
-      console.error("Failed to start web call", err);
-    } finally {
-      setIsTesting(false);
-    }
-  };
+  
 
   return (
     <div className="group relative rounded-xl border border-white/[0.06] bg-zinc-900/80 p-5 transition-all duration-150 hover:border-white/[0.1] hover:bg-zinc-900">
@@ -179,18 +160,7 @@ function AgentCard({
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-8 z-10 w-40 rounded-lg border border-white/[0.08] bg-zinc-900 py-1 shadow-xl">
-                <button
-                  onClick={handleTestCall}
-                  disabled={isTesting}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200 transition-colors disabled:opacity-50"
-                >
-                  {isTesting ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Play className="h-3.5 w-3.5" />
-                  )}
-                  Test call
-                </button>
+                <TestCallButton agentId={agent.id} />
                 <a
                   href={`/agents/${agent.id}`}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200 transition-colors"

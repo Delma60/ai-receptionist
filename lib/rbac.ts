@@ -9,7 +9,6 @@
 // ─────────────────────────────────────────────
 
 export type PlatformRole = "admin" | "support" | "user";
-
 /** Numeric hierarchy — higher = more access */
 export const PLATFORM_HIERARCHY: Record<PlatformRole, number> = {
   admin:   3,

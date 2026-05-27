@@ -43,8 +43,6 @@ export default function SignInPage() {
       });
 
       router.refresh();
-      router.refresh();
-      router.refresh();
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Sign in failed");

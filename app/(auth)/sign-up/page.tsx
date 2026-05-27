@@ -58,8 +58,6 @@ export default function SignUpPage() {
       });
 
       router.refresh();
-      router.refresh();
-      router.refresh();
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Sign up failed");

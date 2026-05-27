@@ -37,6 +37,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { useParams } from "next/navigation";
+import { TestCallButton } from "@/components/call/test-call-button";
 
 // ── Helper: format a Firestore Timestamp or ISO string ───────────────────────
 // Fix 6: robust timestamp formatting that handles Firestore Timestamp objects,
@@ -161,13 +162,8 @@ export default function AgentDetailPage() {
             <Trash2 className="h-4 w-4" />
             Delete
           </Button>
-          <Button
-            variant="outline"
-            className="gap-2 border-white/[0.06] bg-zinc-900/80 text-zinc-400 hover:text-white"
-          >
-            <Play className="h-4 w-4" />
-            Test call
-          </Button>
+          <TestCallButton agentId={agent.id} />
+
           <Button
             onClick={handleSave}
             disabled={isSaving}
