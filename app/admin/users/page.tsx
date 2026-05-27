@@ -46,7 +46,7 @@ export default function AdminUsersPage() {
                 <RoleAssignmentPicker
                   userId={user.uid}
                   currentRole={user.customClaims?.role || "user"}
-                  onChange={async (role) => {
+                  onAssign={async (role) => {
                     await fetch("/api/admin/set-role", {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },

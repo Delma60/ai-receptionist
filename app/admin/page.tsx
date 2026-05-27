@@ -503,36 +503,7 @@ export default function AdminOverviewPage() {
         )}
       </div>
 
-      {/* System health placeholder (can wire to real checks later) */}
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900/80 p-5">
-        <p className="text-[12px] font-medium uppercase tracking-widest text-zinc-600 mb-4">
-          Third-party Services
-        </p>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {[
-            { name: "Firebase", ok: health.firebase },
-            { name: "Vapi", ok: health.vapi },
-            { name: "Twilio", ok: health.twilio },
-          ].map(({ name, ok }) => (
-            <div
-              key={name}
-              className="flex items-center gap-2.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
-            >
-              {ok === null ? (
-                <span className="h-2 w-2 rounded-full bg-zinc-600" />
-              ) : ok ? (
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              ) : (
-                <AlertCircle className="h-3.5 w-3.5 text-red-400" />
-              )}
-              <span className="text-[13px] text-zinc-300">{name}</span>
-              <span className="ml-auto text-[11px] text-zinc-600">
-                {ok === null ? "unchecked" : ok ? "ok" : "error"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* System health placeholder removed until feature is built */}
     </div>
   );
 }

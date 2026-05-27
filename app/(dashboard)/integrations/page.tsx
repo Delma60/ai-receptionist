@@ -447,30 +447,40 @@ export default function IntegrationsPage() {
   }, [user]);
 
   // Derive items by merging static metadata with live Firestore status
-  const items: Integration[] = availableIntegrations.map((item) => {
-    const firestoreKey = item.id.replace(/-([a-z])/g, (g: any) =>
-      g[1].toUpperCase(),
-    );
-    const dynamic = tenant?.integrations?.[firestoreKey];
+  // Hide Google Calendar, HubSpot, GoHighLevel integrations if not implemented
+  const items: Integration[] = availableIntegrations
+    .filter((item) => {
+      const key = (item.service || item.id || "").toLowerCase();
+      // Hide these integrations unless implemented
+      if (["google_calendar", "hubspot", "gohighlevel"].includes(key)) {
+        return !!item.comingSoon;
+      }
+      return true;
+    })
+    .map((item) => {
+      const firestoreKey = item.id.replace(/-([a-z])/g, (g: any) =>
+        g[1].toUpperCase(),
+      );
+      const dynamic = tenant?.integrations?.[firestoreKey];
 
-    // Add icon and oauthUrl to satisfy type
-    return {
-      ...item,
-      icon: (
-        <DynamicIcon
-          name={item.iconName}
-          className={cn("h-5 w-5", item.iconColor)}
-        />
-      ),
-      oauthUrl: item.oauthUrl || undefined,
-      status: dynamic
-        ? (dynamic.status as IntegrationStatus) ||
-          (dynamic.connected ? "connected" : "disconnected")
-        : "disconnected",
-      connectedAccount: dynamic?.connectedAccount || dynamic?.account,
-      lastSync: dynamic?.lastSync,
-    } as Integration;
-  });
+      // Add icon and oauthUrl to satisfy type
+      return {
+        ...item,
+        icon: (
+          <DynamicIcon
+            name={item.iconName}
+            className={cn("h-5 w-5", item.iconColor)}
+          />
+        ),
+        oauthUrl: item.oauthUrl || undefined,
+        status: dynamic
+          ? (dynamic.status as IntegrationStatus) ||
+            (dynamic.connected ? "connected" : "disconnected")
+          : "disconnected",
+        connectedAccount: dynamic?.connectedAccount || dynamic?.account,
+        lastSync: dynamic?.lastSync,
+      } as Integration;
+    });
 
   const connectedCount = items.filter((i) => i.status === "connected").length;
   const errorCount = items.filter((i) => i.status === "error").length;

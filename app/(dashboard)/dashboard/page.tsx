@@ -554,11 +554,11 @@ export default function DashboardPage() {
               ))}
             </div>
             <div className="mt-4 flex gap-2">
-              <TestCallButton agentId={activeAgent.id} />
+              <TestCallButton agentId={activeAgent?.id} />
 
               {activeAgent && (
                 <a
-                  href={`/agents/${activeAgent.id}`}
+                  href={`/agents/${activeAgent?.id}`}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200"
                 >
                   Configure
@@ -696,6 +696,7 @@ export default function DashboardPage() {
 
       {/* ── Quick actions ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Only show built features, hide Analytics and System Health */}
         {[
           {
             href: "/agents/new",

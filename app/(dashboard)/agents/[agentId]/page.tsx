@@ -472,37 +472,12 @@ export default function AgentDetailPage() {
                     </Button>
                   </div>
 
-                  <div className="pt-4 border-t border-white/[0.04] space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[13px] font-medium text-zinc-200">
-                          Call Forwarding
-                        </p>
-                        <p className="text-[11px] text-zinc-600">
-                          Transfer callers to a human team member
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-white/[0.06] text-xs"
-                      >
-                        Configure
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[13px] font-medium text-zinc-200">
-                          Voicemail
-                        </p>
-                        <p className="text-[11px] text-zinc-600">
-                          Take messages when office is closed
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-emerald-400 font-medium">
-                        Enabled
-                      </span>
-                    </div>
+                  {/* Call Forwarding, Voicemail, and SMS Follow-up are hidden until implemented */}
+                  {/* <div className="pt-4 border-t border-white/[0.04] space-y-4">
+                    ...Call Forwarding...
+                    ...Voicemail...
+                    ...SMS Follow-up...
+                  </div> */}
                   </div>
                 </CardContent>
               </Card>
