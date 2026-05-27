@@ -421,28 +421,29 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     if (!user) return;
+    // Fetch tenant info as before
     const unsub = onSnapshot(doc(db, "tenants", user.uid), (doc) => {
       if (doc.exists()) {
         setTenant(doc.data());
       }
     });
 
-    const unsubAvailable = onSnapshot(
-      collection(db, "available_integrations"),
-      (snapshot) => {
-        // Filter out items that the admin has not published
-        const data = snapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .filter((item: any) => item.published === true); // <--- Add this filter
-
-        setAvailableIntegrations(data);
+    // Fetch integrations from API
+    setLoading(true);
+    fetch("/api/integrations")
+      .then((res) => res.json())
+      .then((data) => {
+        setAvailableIntegrations(
+          Array.isArray(data.integrations)
+            ? data.integrations.filter((item: any) => item.published !== false)
+            : [],
+        );
         setLoading(false);
-      },
-    );
+      })
+      .catch(() => setLoading(false));
 
     return () => {
       unsub();
-      unsubAvailable();
     };
   }, [user]);
 
